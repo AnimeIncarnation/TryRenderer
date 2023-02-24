@@ -9,8 +9,8 @@ FrameResource::FrameResource(DXDevice* device, UINT cbufferSize)
 		CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_DIRECT, cmdAllocator.Get(), nullptr, IID_PPV_ARGS(cmdList.GetAddressOf())));
 	ThrowIfFailed(cmdList->Close());
 
-	perObjConstantUpload = std::make_unique<UploadBuffer>(device, cbufferSize);
-	perObjConstantDefault = std::make_unique<DefaultBuffer>(device, cbufferSize);
+	constantUpload = std::make_unique<UploadBuffer>(device, cbufferSize);
+	constantDefault = std::make_unique<DefaultBuffer>(device, cbufferSize);
 
 }
 

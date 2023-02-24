@@ -9,11 +9,20 @@
 //
 //*********************************************************
 
-cbuffer SceneConstantBuffer : register(b0)
+//cbuffer PerCamera : register(b0)
+//{
+//    float4x4 viewMatrix;
+//    float4x4 projMatrix;
+//    float4x4 vpMatrix;
+//};
+
+struct PerCameraConstants
 {
-    float4 offset;
-    float4 padding[15];
+    float4x4 viewMatrix;
+    float4x4 projMatrix;
+    float4x4 vpMatrix;
 };
+ConstantBuffer<PerCameraConstants> perCameraConstants : register(b0);
 
 struct PSInput
 {
@@ -24,8 +33,7 @@ struct PSInput
 PSInput VSMain(float4 position : POSITION, float4 color : COLOR)
 {
     PSInput result;
-
-    result.position = position + offset;
+    result.position = mul(perCameraConstants.vpMatrix, position);
     result.color = color;
 
     return result;

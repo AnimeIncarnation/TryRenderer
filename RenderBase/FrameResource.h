@@ -68,8 +68,8 @@ class FrameResource
 public:
 	ComPtr<ID3D12CommandAllocator> cmdAllocator;
 	ComPtr<ID3D12GraphicsCommandList> cmdList;
-    std::unique_ptr<DefaultBuffer> perObjConstantDefault;
-    std::unique_ptr<UploadBuffer> perObjConstantUpload;
+    std::unique_ptr<DefaultBuffer> constantDefault;
+    std::unique_ptr<UploadBuffer> constantUpload;
     //std::vector<ComPtr<ID3D12Resource>> delayDisposeResources;
     //std::vector<std::function<void()>> afterSyncEvents;
 	UINT64 fenceID = 0;

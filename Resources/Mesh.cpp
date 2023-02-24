@@ -3,8 +3,9 @@
 Mesh::Mesh(
 	DXDevice* device, 
 	std::span<const rtti::ElementStruct*> vbStructs, 
-	UINT64 vertexCount)
-	:Resource(device),vertexCount(vertexCount), vertexStructs(vbStructs)
+	UINT64 vertexCount,
+	UINT64 indiceCount)
+	:Resource(device), indexBuffer(device, sizeof(uint)* indiceCount), vertexCount(vertexCount),indiceCount(indiceCount), vertexStructs(vbStructs)
 {
 	//vertexBuffers.reserve(vertexStructs.size());
 	uint slotCount = 0;
@@ -28,4 +29,14 @@ void Mesh::GetVertexBufferView(std::vector<D3D12_VERTEX_BUFFER_VIEW>& result) co
 		res.SizeInBytes = v.GetSize();
 		res.StrideInBytes = res.SizeInBytes / vertexCount;
 	}
+}
+
+D3D12_INDEX_BUFFER_VIEW Mesh::GetIndexBufferView() const
+{
+	D3D12_INDEX_BUFFER_VIEW res;
+	const DefaultBuffer& v = IndexBuffer();
+	res.BufferLocation = v.GetGPUAddress();
+	res.SizeInBytes = v.GetSize();
+	res.Format = DXGI_FORMAT_R32_UINT;
+	return res;
 }

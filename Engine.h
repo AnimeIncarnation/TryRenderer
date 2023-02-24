@@ -21,6 +21,7 @@
 #include "Resources/Mesh.h"
 #include "Resources/UploadBuffer.h"
 #include "RenderBase/FrameResource.h"
+#include "Component/Camera.h"
 
 using namespace DirectX;
 
@@ -31,10 +32,10 @@ using namespace DirectX;
 // An example of this can be found in the class method: OnDestroy().
 using Microsoft::WRL::ComPtr;
 
-class D3D12HelloConstBuffers : public DXSample
+class Engine : public DXSample
 {
 public:
-    D3D12HelloConstBuffers(UINT width, UINT height, std::wstring name);
+    Engine(UINT width, UINT height, std::wstring name);
 
     virtual void OnInit();
     virtual void OnUpdate(FrameResource& frameRes, UINT64 frameIndex);
@@ -43,7 +44,7 @@ public:
 
 private:
     static const UINT FrameCount = 3;
-    const UINT constantBufferSize = sizeof(SceneConstantBuffer);    // CB size is required to be 256-byte aligned.
+    const UINT constantBufferSize = sizeof(PerCameraConstant);    // CB size is required to be 256-byte aligned.
     struct Vertex: rtti::ElementStruct
     {
         rtti::ElementType<XMFLOAT3> position = "POSITION";
@@ -57,12 +58,15 @@ private:
         Vertex() {};
     };
 
-    struct SceneConstantBuffer
+    //CBufferÒª256B¶ÔÆë
+    struct PerCameraConstant
     {
-        XMFLOAT4 offset;
-        float padding[60]; // Padding so the constant buffer is 256-byte aligned.
+        Math::Matrix4 viewMatrix; 
+        Math::Matrix4 projMatrix; 
+        Math::Matrix4 vpMatrix; 
+        char padding[64];
     };
-    static_assert((sizeof(SceneConstantBuffer) % 256) == 0, "Constant Buffer size must be 256-byte aligned");
+    static_assert((sizeof(PerCameraConstant) % 256) == 0, "Constant Buffer size must be 256-byte aligned");
 
     // Pipeline objects.
     std::unique_ptr<DXDevice> dxDevice;
@@ -80,14 +84,17 @@ private:
     ComPtr<ID3D12PipelineState> m_pipelineState;
     UINT m_rtvDescriptorSize;
     UINT m_cbvDescriptorSize;
+    UINT m_dsvDescriptorSize;
 
     // App resources.
+    PerCameraConstant m_constantBufferData;
     std::unique_ptr<UploadBuffer>  m_uploadBufferForConstant;
-    
-    SceneConstantBuffer m_constantBufferData;
     UINT8* m_mappedCbvData[FrameCount];
-    std::unique_ptr<Mesh> triangleMesh;
+    std::unique_ptr<Mesh> cubeMesh;
     std::unique_ptr<UploadBuffer> uploadBufferVertex;
+    std::unique_ptr<UploadBuffer> uploadBufferIndex;
+
+    std::unique_ptr<Camera> mainCamera;
 
     // Synchronization objects.
     // CommandListHandle currentCommandListHandle;

@@ -51,6 +51,18 @@
     <ClCompile Include="RenderBase\Timer.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
+    <ClCompile Include="Component\Camera.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="DXMath\DXMath.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="DXMath\MathHelper.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="Component\Shader.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="stdafx.h">
@@ -104,8 +116,41 @@
     <ClInclude Include="RenderBase\Timer.h">
       <Filter>头文件</Filter>
     </ClInclude>
+    <ClInclude Include="Component\Camera.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="DXMath\Common.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="DXMath\DXMath.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="DXMath\MathHelper.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="DXMath\Matrix3.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="DXMath\Matrix4.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="DXMath\Quaternion.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="DXMath\Scalar.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="DXMath\Swizzle.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="DXMath\Vector.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="Component\Shader.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <FxCompile Include="shaders.hlsl" />
+    <FxCompile Include="Shaders\shaders.hlsl" />
   </ItemGroup>
 </Project>
