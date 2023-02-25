@@ -28,6 +28,7 @@ public:
 	void GetVertexBufferView(std::vector<D3D12_VERTEX_BUFFER_VIEW>& result) const;
 	D3D12_INDEX_BUFFER_VIEW GetIndexBufferView() const;
 	UINT64 GetVertexCount()const { return vertexCount; }
+	UINT64 GetIndiceCount()const { return indiceCount; }
 };
 
 #endif

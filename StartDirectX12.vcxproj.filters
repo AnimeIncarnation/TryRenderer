@@ -63,6 +63,12 @@
     <ClCompile Include="Component\Shader.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
+    <ClCompile Include="Component\RasterShader.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="Component\PSOManager.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="stdafx.h">
@@ -147,6 +153,15 @@
       <Filter>头文件</Filter>
     </ClInclude>
     <ClInclude Include="Component\Shader.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="Component\ShaderParameterType.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="Component\RasterShader.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="Component\PSOManager.h">
       <Filter>头文件</Filter>
     </ClInclude>
   </ItemGroup>

@@ -22,6 +22,7 @@
 #include "Resources/UploadBuffer.h"
 #include "RenderBase/FrameResource.h"
 #include "Component/Camera.h"
+#include "Component/PSOManager.h"
 
 using namespace DirectX;
 
@@ -82,6 +83,8 @@ private:
     ComPtr<ID3D12DescriptorHeap> m_cbvHeap;
     ComPtr<ID3D12DescriptorHeap> m_dsvHeap;
     ComPtr<ID3D12PipelineState> m_pipelineState;
+    std::unique_ptr<PSOManager> m_psoManager;
+    std::unique_ptr<RasterShader> colorShader;
     UINT m_rtvDescriptorSize;
     UINT m_cbvDescriptorSize;
     UINT m_dsvDescriptorSize;
@@ -93,7 +96,6 @@ private:
     std::unique_ptr<Mesh> cubeMesh;
     std::unique_ptr<UploadBuffer> uploadBufferVertex;
     std::unique_ptr<UploadBuffer> uploadBufferIndex;
-
     std::unique_ptr<Camera> mainCamera;
 
     // Synchronization objects.

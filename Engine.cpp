@@ -273,7 +273,7 @@ void Engine::LoadAssets()
         structs.emplace_back(&Vertex::Instance());
         cubeMesh = std::make_unique<Mesh>(dxDevice.get(), structs, array_count(vertices), array_count(indices));
         ID3D12Resource* dftbfr = cubeMesh->VertexBuffers()[0].GetResource();
-        ThrowIfFailed(cmdList->Reset(cmdAlloc.Get(), m_pipelineState.Get()));
+        ThrowIfFailed(cmdList->Reset(cmdAlloc.Get(), nullptr));
 
         cmdList->CopyBufferRegion(dftbfr, 0, uploadBufferVertex->GetResource(), 0, uploadBufferVertex->GetSize());
         cmdList->CopyBufferRegion(cubeMesh->IndexBuffer().GetResource(), 0, uploadBufferIndex->GetResource(), 0, uploadBufferIndex->GetSize());
@@ -326,49 +326,19 @@ void Engine::LoadAssets()
         m_commandQueue->ExecuteCommandLists(array_count(ppCommandLists), ppCommandLists);
     }
 
-    //三、创建根签名（带有一个描述符表，表中带有一个CBV）：
+    //三、创建Shader参数（即根签名）（带有一个描述符表，表中带有一个CBV）：
     {
-        D3D12_FEATURE_DATA_ROOT_SIGNATURE featureData = {};
-
-        // This is the highest version the sample supports. If CheckFeatureSupport succeeds, the HighestVersion returned will not be greater than this.
-        featureData.HighestVersion = D3D_ROOT_SIGNATURE_VERSION_1_1;
-
-        if (FAILED(dxDevice->Device()->CheckFeatureSupport(D3D12_FEATURE_ROOT_SIGNATURE, &featureData, sizeof(featureData))))
-        {
-            featureData.HighestVersion = D3D_ROOT_SIGNATURE_VERSION_1_0;
-        }
-
-        //建立一个根参数表和range表。根参数表中可以选择填入描述符表，描述符和根常量；每填入一个描述符表则需要提供一个range，range指定类型，数量，寄存器
-        CD3DX12_DESCRIPTOR_RANGE1 ranges[1];
-        CD3DX12_ROOT_PARAMETER1 rootParameters[1];   
-            //baseShaderRegister和num指定了GPU Buffer和shader register的对应关系。一个buffer对应一个寄存器槽
-        ranges[0].Init(D3D12_DESCRIPTOR_RANGE_TYPE_CBV, 1, 0, 0, D3D12_DESCRIPTOR_RANGE_FLAG_DATA_STATIC);
-        //如果将根参数初始化为描述符表，那么就需要一个或多个descriptor_range指定描述符堆中的范围。指定哪个shader可访问该根参数
-        rootParameters[0].InitAsDescriptorTable(1, &ranges[0], D3D12_SHADER_VISIBILITY_VERTEX);
-
-        // Allow input layout and deny uneccessary access to certain pipeline stages.
-        D3D12_ROOT_SIGNATURE_FLAGS rootSignatureFlags =
-            D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT |
-            D3D12_ROOT_SIGNATURE_FLAG_DENY_HULL_SHADER_ROOT_ACCESS |
-            D3D12_ROOT_SIGNATURE_FLAG_DENY_DOMAIN_SHADER_ROOT_ACCESS |
-            D3D12_ROOT_SIGNATURE_FLAG_DENY_GEOMETRY_SHADER_ROOT_ACCESS |
-            D3D12_ROOT_SIGNATURE_FLAG_DENY_PIXEL_SHADER_ROOT_ACCESS;
-
-        CD3DX12_VERSIONED_ROOT_SIGNATURE_DESC rootSignatureDesc;
-        rootSignatureDesc.Init_1_1(_countof(rootParameters), rootParameters, 0, nullptr, rootSignatureFlags);
-
-        //D3D12指定必须先将根签名的描述符布局进行序列化处理，转换为以blob接口表示的序列化数据之后才可传入CreateRootSignature中
-        ComPtr<ID3DBlob> signature;
-        ComPtr<ID3DBlob> error;
-        ThrowIfFailed(D3DX12SerializeVersionedRootSignature(&rootSignatureDesc, featureData.HighestVersion, &signature, &error));
-        ThrowIfFailed(dxDevice->Device()->CreateRootSignature(0, signature->GetBufferPointer(), signature->GetBufferSize(), IID_PPV_ARGS(&m_rootSignature)));
+        std::vector<std::pair<std::string, Shader::Parameter>> shaderParams; 
+        shaderParams.emplace_back("PerCameraConstant", Shader::Parameter{ ShaderParameterType::CBVTable, 0, 0, 1 }); 
+        colorShader = std::make_unique<RasterShader>(shaderParams, dxDevice.get());
     }
 
-    //四、编译、加载Shader，创建管线状态
+    //四、创建RasterShader（vs和ps的编译，RasterShader也记录PSO相关的光栅化信息）
     {
+        m_psoManager = std::make_unique<PSOManager>();
+        //使用RasterShader的信息构建pipelineState
         ComPtr<ID3DBlob> vertexShader;
         ComPtr<ID3DBlob> pixelShader;
-
 #if defined(_DEBUG)
         // Enable better shader debugging with the graphics debugging tools.
         UINT compileFlags = D3DCOMPILE_DEBUG | D3DCOMPILE_SKIP_OPTIMIZATION;
@@ -378,28 +348,52 @@ void Engine::LoadAssets()
         //注：使用GetAssetFullPath时Throw错误，直接写入shaders.hlsl后正常运行
         ThrowIfFailed(D3DCompileFromFile(std::wstring(L"Shaders/shaders.hlsl").c_str(), nullptr, nullptr, "VSMain", "vs_5_1", compileFlags, 0, &vertexShader, nullptr));
         ThrowIfFailed(D3DCompileFromFile(std::wstring(L"Shaders/shaders.hlsl").c_str(), nullptr, nullptr, "PSMain", "ps_5_1", compileFlags, 0, &pixelShader, nullptr));
-        
-        // Describe and create the graphics pipeline state object (PSO).
-        D3D12_GRAPHICS_PIPELINE_STATE_DESC psoDesc = {};                            //管线状态对象包括：
-        psoDesc.InputLayout = { cubeMesh->Layout().data(),
-                                cubeMesh->Layout().size() };                        //顶点结构体布局。用自定义的Mesh类获取
-        psoDesc.pRootSignature = m_rootSignature.Get();                             //根签名（shader参数）
-        psoDesc.VS = CD3DX12_SHADER_BYTECODE(vertexShader.Get());                   //VS。DX会自动检测VS的输入和“顶点结构体布局”是否匹配，后者一定要>=前者（意会）
-        psoDesc.PS = CD3DX12_SHADER_BYTECODE(pixelShader.Get());                    //PS
-        psoDesc.RasterizerState = CD3DX12_RASTERIZER_DESC(D3D12_DEFAULT);           //渲染状态（硬件支持的MSAA？背面剔除？线框模式？阴影bias？保守光栅化？）
-        psoDesc.BlendState = CD3DX12_BLEND_DESC(D3D12_DEFAULT);                     //混合状态（混合方式？是否开启AlphaToCoverage？MRT时的多混合状态？）
-        psoDesc.DepthStencilState.DepthEnable = TRUE;                               //深度写入√
-        psoDesc.DepthStencilState.DepthFunc = D3D12_COMPARISON_FUNC_LESS;           //小于则写入
-        psoDesc.DepthStencilState.DepthWriteMask = D3D12_DEPTH_WRITE_MASK_ALL;
-        psoDesc.DepthStencilState.StencilEnable = FALSE;                            //模板测试？
-        psoDesc.SampleMask = UINT_MAX;                                              //多重采样采样点允许与否的掩码。32位bit
-        psoDesc.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;     //图元拓扑。如果制定了HS和DS，必须为Patch
-        psoDesc.NumRenderTargets = 1;                                               //RenderTarget的数量：即RTVFormats数组长度
-        psoDesc.RTVFormats[0] = DXGI_FORMAT_R8G8B8A8_UNORM;                         //RenderTarget的模式：每个RenderTarget的格式
-        psoDesc.DSVFormat = DXGI_FORMAT_D32_FLOAT;
-        psoDesc.SampleDesc.Count = 1;                                               //指定多重采样的采样数量和质量级别。数量必须与渲染目标的对应数据相同
+        colorShader->vsShader = vertexShader;
+        colorShader->psShader = pixelShader;
+        colorShader->rasterizeState = CD3DX12_RASTERIZER_DESC(D3D12_DEFAULT);
+        colorShader->blendState = CD3DX12_BLEND_DESC(D3D12_DEFAULT);
+        colorShader->depthStencilState.DepthEnable = TRUE;
+        colorShader->depthStencilState.DepthFunc = D3D12_COMPARISON_FUNC_LESS;
+        colorShader->depthStencilState.DepthWriteMask = D3D12_DEPTH_WRITE_MASK_ALL;
+        colorShader->depthStencilState.StencilEnable = FALSE;
+        std::vector<DXGI_FORMAT> rtvFmt;
+        rtvFmt.push_back(DXGI_FORMAT_R8G8B8A8_UNORM);
+        DXGI_FORMAT dsvFmt = DXGI_FORMAT_D32_FLOAT;
+        m_pipelineState = m_psoManager->GetPipelineState( //使用PSOManager创建了PipelineState
+            dxDevice.get(),
+            *colorShader,
+            cubeMesh->Layout(),
+            D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE,
+            rtvFmt,
+            dsvFmt);
+        //m_pipelineState = m_psoManager->GetPipelineState( //使用PSOManager创建了PipelineState
+        //    dxDevice.get(),
+        //    *colorShader.get(),
+        //    cubeMesh->Layout(),
+        //    D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE,
+        //    rtvFmt,
+        //    dsvFmt);
 
-        ThrowIfFailed(dxDevice->Device()->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&m_pipelineState)));
+        //// Describe and create the graphics pipeline state object (PSO).
+        //D3D12_GRAPHICS_PIPELINE_STATE_DESC psoDesc = {};                            //管线状态对象包括：
+        //psoDesc.pRootSignature = m_rootSignature.Get();                             //根签名（shader参数）
+        //psoDesc.VS = CD3DX12_SHADER_BYTECODE(vertexShader.Get());                   //VS。DX会自动检测VS的输入和“顶点结构体布局”是否匹配，后者一定要>=前者（意会）
+        //psoDesc.PS = CD3DX12_SHADER_BYTECODE(pixelShader.Get());                    //PS
+        //psoDesc.RasterizerState = CD3DX12_RASTERIZER_DESC(D3D12_DEFAULT);           //光栅状态（硬件支持的MSAA？背面剔除？线框模式？阴影bias？保守光栅化？）
+        //psoDesc.BlendState = CD3DX12_BLEND_DESC(D3D12_DEFAULT);                     //混合状态（混合方式？是否开启AlphaToCoverage？MRT时的多混合状态？）
+        //psoDesc.DepthStencilState.DepthEnable = TRUE;                               //深度写入√
+        //psoDesc.DepthStencilState.DepthFunc = D3D12_COMPARISON_FUNC_LESS;           //小于则写入
+        //psoDesc.DepthStencilState.DepthWriteMask = D3D12_DEPTH_WRITE_MASK_ALL;
+        //psoDesc.DepthStencilState.StencilEnable = FALSE;                            //模板测试？
+        //psoDesc.InputLayout = { cubeMesh->Layout().data(),
+        //                       cubeMesh->Layout().size() };                        //顶点结构体布局。用自定义的Mesh类获取
+        //psoDesc.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;     //拓扑类型（点/线/三角形/Patch）。如果制定了HS和DS，必须为Patch
+        //psoDesc.NumRenderTargets = 1;                                               //RenderTarget的数量：即RTVFormats数组长度
+        //psoDesc.RTVFormats[0] = DXGI_FORMAT_R8G8B8A8_UNORM;                         //RenderTarget的模式：每个RenderTarget的格式
+        //psoDesc.DSVFormat = DXGI_FORMAT_D32_FLOAT;
+        //psoDesc.SampleMask = UINT_MAX;                                              //多重采样采样点允许与否的掩码。32位bit
+        //psoDesc.SampleDesc.Count = 1;                                               //指定多重采样的采样数量和质量级别。数量必须与渲染目标的对应数据相同
+        //ThrowIfFailed(dxDevice->Device()->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&m_pipelineState)));
     }
 
     //五、创建同步用围栏，等待前LoadAssets阶段完成
@@ -421,6 +415,7 @@ void Engine::LoadAssets()
 // Update frame-based values.
 void Engine::OnUpdate(FrameResource& frameRes, UINT64 frameIndex)
 {
+    //更新相机参数，获取更新后的相机参数，拷贝至map到的地址
     mainCamera->UpdateViewMatrix();
     mainCamera->UpdateProjectionMatrix();
     m_constantBufferData.viewMatrix = mainCamera->GetViewMatrix();
@@ -492,74 +487,63 @@ void Engine::OnDestroy()
 // Fill the command list with all the render commands and dependent state.
 void Engine::PopulateCommandList(FrameResource& frameRes, UINT64 frameIndex)
 {
-    //IA：Input Assembler，OM：Output Merger，RS：Rasterize Stage
+    // IA（Input Assembler）：1. 图元拓扑详细版  2. 顶点缓冲区  3. 索引缓冲区
+    // OM（Output Merger）：设置渲染目标RenderTarget
+    // RS（Rasterize Stage）：1. 设置视口  2. 设置裁剪矩形
+    // Shader参数相关：1. 设置根签名  2. 设置描述符堆  3. 注入根实参
+    // 其他：针对RT和DS的Clear操作，设置PSO
+
+    // 要手写的只有Shader参数相关的三个——①设置描述符堆，②设置根签名，③注入根实参
 
     //获取当前帧的信息
     frameRes.Populate();
     ID3D12GraphicsCommandList* cmdList = frameRes.cmdList.Get();
     ID3D12CommandAllocator* cmdAlloc = frameRes.cmdAllocator.Get();
-    UploadBuffer* uploadBuffer = frameRes.constantUpload.get();
-    //ThrowIfFailed(cmdList->Reset(cmdAlloc, m_pipelineState.Get()));
 
-    //之前创建好了根参数，由根参数组织成根签名。现在要设置根签名（根参数），后需要设置描述符堆，因为要把描述符堆和根参数联系起来
-    cmdList->SetGraphicsRootSignature(m_rootSignature.Get());
+    //1. 设置描述符堆和根签名
+    ////之前创建好了根参数，由根参数组织成根签名。现在要设置根签名（根参数），后需要设置描述符堆，因为要把描述符堆和根参数联系起来
+    cmdList->SetGraphicsRootSignature(colorShader->GetRootSignature());
     ID3D12DescriptorHeap* ppHeaps[] = { m_cbvHeap.Get() };
     cmdList->SetDescriptorHeaps(_countof(ppHeaps), ppHeaps);
 
+    //2. 注入根实参
     //绑定好根签名和描述符堆后，为每个根参数进行赋值（每个根形参都要用一个根实参来赋值）
     //给table实际赋值（table的根参数序号, BaseDescriptor）。因为在跟签名中已经设置了范围，这里只需要一个base就可以了
     //这里设置的是DefaultBuffeForConstant的Descriptor位置，所以offset是FrameCount
     CD3DX12_GPU_DESCRIPTOR_HANDLE cbvHandle(m_cbvHeap->GetGPUDescriptorHandleForHeapStart(), frameIndex * 2 + 1, m_cbvDescriptorSize);
-    cmdList->SetGraphicsRootDescriptorTable(0, cbvHandle); 
+    colorShader->SetParameter(cmdList, "PerCameraConstant", cbvHandle);
 
-    ////1. 执行+重置
-    //ThrowIfFailed(cmdList->Close());
-    //ID3D12CommandList* ppCommandLists[] = { cmdList };
-    //m_commandQueue->ExecuteCommandLists(array_count(ppCommandLists), ppCommandLists);
-    //m_commandQueue->Signal(m_fence.Get(), ++m_fenceValue);
-    //if (m_fence->GetCompletedValue() < m_fenceValue)
-    //{
-    //    LPCWSTR falseValue = 0;
-    //    HANDLE eventHandle = CreateEventEx(nullptr, falseValue, false, EVENT_ALL_ACCESS);
-    //    ThrowIfFailed(m_fence->SetEventOnCompletion(m_fenceValue, eventHandle));
-    //    WaitForSingleObject(eventHandle, INFINITE);
-    //    CloseHandle(eventHandle);
-    //}
-    //ThrowIfFailed(cmdList->Reset(cmdAlloc, m_pipelineState.Get()));
-    ////1. 执行+重置+同步
-    cmdList->RSSetViewports(1, &m_viewport);
-    cmdList->RSSetScissorRects(1, &m_scissorRect);
-    
     // Indicate that the back buffer will be used as a render target.
     cmdList->ResourceBarrier(1, get_rvalue_ptr(CD3DX12_RESOURCE_BARRIER::Transition(m_renderTargets[frameIndex].Get(), D3D12_RESOURCE_STATE_PRESENT, D3D12_RESOURCE_STATE_RENDER_TARGET)));
     cmdList->ResourceBarrier(1, get_rvalue_ptr(CD3DX12_RESOURCE_BARRIER::Transition(m_depthTarget.Get(), D3D12_RESOURCE_STATE_DEPTH_READ, D3D12_RESOURCE_STATE_DEPTH_WRITE)));
-
     CD3DX12_CPU_DESCRIPTOR_HANDLE rtvHandle(m_rtvHeap->GetCPUDescriptorHandleForHeapStart(), frameIndex, m_rtvDescriptorSize);
     CD3DX12_CPU_DESCRIPTOR_HANDLE dsvHandle(m_dsvHeap->GetCPUDescriptorHandleForHeapStart(), 0, m_dsvDescriptorSize);
-    cmdList->OMSetRenderTargets(1, &rtvHandle, FALSE, &dsvHandle);
-
-
-    const float clearColor[] = { 0.0f, 0.2f, 0.4f, 1.0f };
-    cmdList->ClearRenderTargetView(rtvHandle, clearColor, 0, nullptr);
-    cmdList->ClearDepthStencilView(dsvHandle, D3D12_CLEAR_FLAG_DEPTH, 1, 0, 0, nullptr);
-    cmdList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-
-    std::vector<D3D12_VERTEX_BUFFER_VIEW> vertexBufferView;
-    cubeMesh->GetVertexBufferView(vertexBufferView);
-
-    cmdList->IASetVertexBuffers(0, vertexBufferView.size(), vertexBufferView.data());
-    D3D12_INDEX_BUFFER_VIEW indexBufferView = cubeMesh->GetIndexBufferView();
-    cmdList->IASetIndexBuffer(&indexBufferView);
-    cmdList->DrawIndexedInstanced(array_count(indices), 1, 0, 0, 0);
-    //cmdList->DrawInstanced(//如果有索引缓冲区，则需要使用DrawIndexedInstanced~松了口气吧~
-    //    array_count(vertices), //VertexCountPerInstance：每个Instance要绘制的顶点数量。VertexCountPerInstance指定了被绘制的总顶点数，而绘制成什么样子由图元拓扑决定
-    //    1, //InstanceCount：实例的数量。如果不想要“实例化”，设为1，然后把VertexCountPerInstance设为VertexBuffer的长度，StartVert设为零即可。如果想要，则可以看出，能随意定制啊！！
-    //    0, //StartVertexLocation：顶点缓冲区内第一个被绘制的顶点的索引，即起始点
-    //    0);//StartInstanceLocation：似上
+    frameRes.SetRenderTarget(&m_viewport, &m_scissorRect, &rtvHandle, &dsvHandle);  //设置RS和OM
+    frameRes.ClearRenderTarget(rtvHandle);                                          //清除RT
+    frameRes.ClearDepthStencilBuffer(dsvHandle);                                    //清除DS
+    frameRes.DrawMesh(                                                              //设置PSO，设置IA，画
+        dxDevice.get(),             //拿到设备
+        colorShader.get(),          //拿到Shader
+        m_psoManager.get(),         //拿到pso
+        cubeMesh.get(),             //拿到mesh
+        DXGI_FORMAT_R8G8B8A8_UNORM, //RTVのFormat
+        DXGI_FORMAT_D32_FLOAT);     //DSVのFormat
+   
+    //std::vector<D3D12_VERTEX_BUFFER_VIEW> vertexBufferView;
+    //cubeMesh->GetVertexBufferView(vertexBufferView);
+    //cmdList->IASetVertexBuffers(0, vertexBufferView.size(), vertexBufferView.data());
+    //D3D12_INDEX_BUFFER_VIEW indexBufferView = cubeMesh->GetIndexBufferView();
+    //cmdList->IASetIndexBuffer(&indexBufferView);
+    //cmdList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);      //更细化的图元拓扑：列表/条带......
+    //cmdList->DrawIndexedInstanced(cubeMesh->GetIndiceCount(), 1, 0, 0, 0);
+    ////cmdList->DrawInstanced(//如果有索引缓冲区，则需要使用DrawIndexedInstanced~松了口气吧~
+    ////    array_count(vertices), //VertexCountPerInstance：每个Instance要绘制的顶点数量。VertexCountPerInstance指定了被绘制的总顶点数，而绘制成什么样子由图元拓扑决定
+    ////    1, //InstanceCount：实例的数量。如果不想要“实例化”，设为1，然后把VertexCountPerInstance设为VertexBuffer的长度，StartVert设为零即可。如果想要，则可以看出，能随意定制啊！！
+    ////    0, //StartVertexLocation：顶点缓冲区内第一个被绘制的顶点的索引，即起始点
+    ////    0);//StartInstanceLocation：似上
 
     // Indicate that the back buffer will now be used to present.
     cmdList->ResourceBarrier(1, get_rvalue_ptr(CD3DX12_RESOURCE_BARRIER::Transition(m_renderTargets[frameIndex].Get(), D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_PRESENT)));
     cmdList->ResourceBarrier(1, get_rvalue_ptr(CD3DX12_RESOURCE_BARRIER::Transition(m_depthTarget.Get(), D3D12_RESOURCE_STATE_DEPTH_WRITE, D3D12_RESOURCE_STATE_DEPTH_READ)));
-
     ThrowIfFailed(cmdList->Close());
 }

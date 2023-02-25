@@ -7,14 +7,17 @@
 #include "../DXSampleHelper.h"
 #include "../Resources/UploadBuffer.h"
 #include "../Resources/DefaultBuffer.h"
+#include "../Resources/Mesh.h"
+#include "../DXMath/MathHelper.h"
+#include "../Component/PSOManager.h"
+#include "../Component/RasterShader.h"
 //#include "CommandListHandle.h"
 
 
-//后面改成InstanceData
-struct InstanceConstants
-{
-	int offset;
-};
+//struct InstanceConstants
+//{
+//	int offset;
+//};
 
 struct CameraConstants
 {
@@ -46,17 +49,17 @@ struct CameraConstants
 
 struct PBRMatData
 {
-    //DirectX::XMFLOAT4 DiffuseAlbedo = { 1.0f, 1.0f, 1.0f, 1.0f };
-    //DirectX::XMFLOAT3 FresnelR0 = { 0.01f, 0.01f, 0.01f };
-    //float Roughness = 0.5f;
+    DirectX::XMFLOAT4 DiffuseAlbedo = { 1.0f, 1.0f, 1.0f, 1.0f };
+    DirectX::XMFLOAT3 FresnelR0 = { 0.01f, 0.01f, 0.01f };
+    float Roughness = 0.5f;
 
-    //// Used in texture mapping.
-    //DirectX::XMFLOAT4X4 MatTransform = MathHelper::Identity4x4();
+    // Used in texture mapping.
+    DirectX::XMFLOAT4X4 MatTransform = MathHelper::Identity4x4();
 
-    //UINT DiffuseMapIndex = 0;
-    //UINT NormalMapIndex = 0;
-    //UINT MaterialPad1;
-    //UINT MaterialPad2;
+    UINT DiffuseMapIndex = 0;
+    UINT NormalMapIndex = 0;
+    UINT MaterialPad1;
+    UINT MaterialPad2;
 };
 
 
@@ -70,24 +73,34 @@ public:
 	ComPtr<ID3D12GraphicsCommandList> cmdList;
     std::unique_ptr<DefaultBuffer> constantDefault;
     std::unique_ptr<UploadBuffer> constantUpload;
-    //std::vector<ComPtr<ID3D12Resource>> delayDisposeResources;
-    //std::vector<std::function<void()>> afterSyncEvents;
 	UINT64 fenceID = 0;
     bool populated = false;
 
-
-    //CommandListHandle Command();
     void Populate();
     FrameResource(DXDevice* device, UINT cbufferSize);
     ~FrameResource() = default;
-    //void AddDelayDisposeResource(ComPtr<ID3D12Resource> const& ptr);
     void Execute(ID3D12CommandQueue* queue, uint64& fenceIndex);
     void Signal(ID3D12CommandQueue* queue, ID3D12Fence* fence); //在queue中注入更新信号量的任务
     void Sync(ID3D12Fence* fence);
+    void SetRenderTarget(   //设置OM和RS
+        CD3DX12_VIEWPORT const* viewport,
+        CD3DX12_RECT const* scissorRect,
+        CD3DX12_CPU_DESCRIPTOR_HANDLE const* rtvHandle,
+        CD3DX12_CPU_DESCRIPTOR_HANDLE const* dsvHandle = nullptr);
+    void ClearRenderTarget(const CD3DX12_CPU_DESCRIPTOR_HANDLE& rtv);   //Clear RT操作
+    void ClearDepthStencilBuffer(const CD3DX12_CPU_DESCRIPTOR_HANDLE& dsv); //Clear DS操作
+    void DrawMesh(  //IA，Shader参数设置 + Draw
+        DXDevice* device,
+        const RasterShader* shader, 
+        PSOManager* psoManager, 
+        Mesh* mesh,
+        DXGI_FORMAT colorFormat,
+        DXGI_FORMAT depthFormat);
+
 };
 
 
 
 
 
-#endif
+#endif 
