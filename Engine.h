@@ -23,6 +23,9 @@
 #include "RenderBase/FrameResource.h"
 #include "Component/Camera.h"
 #include "Component/PSOManager.h"
+#include "Component/Constants.h"
+#include "Component/Light.h"
+#include "RenderBase/ModelImporter.h"
 
 using namespace DirectX;
 
@@ -45,10 +48,11 @@ public:
 
 private:
     static const UINT FrameCount = 3;
-    const UINT constantBufferSize = sizeof(PerCameraConstant);    // CB size is required to be 256-byte aligned.
-    struct Vertex: rtti::ElementStruct
+    
+    struct Vertex : rtti::ElementStruct
     {
-        rtti::ElementType<XMFLOAT3> position = "POSITION";
+        rtti::ElementType<XMFLOAT4> position = "POSITION";
+        rtti::ElementType<XMFLOAT3> normal = "NORMAL";
         rtti::ElementType<XMFLOAT4> color = "COLOR";
         static Vertex& Instance()
         {
@@ -59,15 +63,7 @@ private:
         Vertex() {};
     };
 
-    //CBufferÒª256B¶ÔÆë
-    struct PerCameraConstant
-    {
-        Math::Matrix4 viewMatrix; 
-        Math::Matrix4 projMatrix; 
-        Math::Matrix4 vpMatrix; 
-        char padding[64];
-    };
-    static_assert((sizeof(PerCameraConstant) % 256) == 0, "Constant Buffer size must be 256-byte aligned");
+   
 
     // Pipeline objects.
     std::unique_ptr<DXDevice> dxDevice;
@@ -82,21 +78,22 @@ private:
     ComPtr<ID3D12DescriptorHeap> m_rtvHeap;
     ComPtr<ID3D12DescriptorHeap> m_cbvHeap;
     ComPtr<ID3D12DescriptorHeap> m_dsvHeap;
-    ComPtr<ID3D12PipelineState> m_pipelineState;
-    std::unique_ptr<PSOManager> m_psoManager;
-    std::unique_ptr<RasterShader> colorShader;
     UINT m_rtvDescriptorSize;
     UINT m_cbvDescriptorSize;
     UINT m_dsvDescriptorSize;
+    ComPtr<ID3D12PipelineState> m_pipelineState;
+    std::unique_ptr<PSOManager> m_psoManager;
+    std::unique_ptr<RasterShader> colorShader;
 
     // App resources.
-    PerCameraConstant m_constantBufferData;
-    std::unique_ptr<UploadBuffer>  m_uploadBufferForConstant;
-    UINT8* m_mappedCbvData[FrameCount];
+    PerCameraConstant cameraConstantData;
+    PerLightConstant lightConstantData;
     std::unique_ptr<Mesh> cubeMesh;
     std::unique_ptr<UploadBuffer> uploadBufferVertex;
     std::unique_ptr<UploadBuffer> uploadBufferIndex;
     std::unique_ptr<Camera> mainCamera;
+    std::unique_ptr<ModelImporter> modelImporter;
+    std::vector<Light> sceneLights;
 
     // Synchronization objects.
     // CommandListHandle currentCommandListHandle;

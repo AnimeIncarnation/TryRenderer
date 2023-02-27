@@ -43,7 +43,6 @@ Shader::Shader(std::span<std::pair<std::string, Parameter>const> params, DXDevic
             rangeIter++;
             break;
         }
-
     }
     CD3DX12_VERSIONED_ROOT_SIGNATURE_DESC rootSignatureDesc(
         allRootParameters.size(), allRootParameters.data(), 0, nullptr, D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT);

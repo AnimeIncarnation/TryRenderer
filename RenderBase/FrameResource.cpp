@@ -1,17 +1,21 @@
 #include "FrameResource.h"
 
 
-FrameResource::FrameResource(DXDevice* device, UINT cbufferSize)
+FrameResource::FrameResource(DXDevice* device)
 {
 	ThrowIfFailed(device->Device()->
 		CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS(cmdAllocator.GetAddressOf())));
 	ThrowIfFailed(device->Device()->
 		CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_DIRECT, cmdAllocator.Get(), nullptr, IID_PPV_ARGS(cmdList.GetAddressOf())));
 	ThrowIfFailed(cmdList->Close());
+}
 
-	constantUpload = std::make_unique<UploadBuffer>(device, cbufferSize);
-	constantDefault = std::make_unique<DefaultBuffer>(device, cbufferSize);
-
+void FrameResource::EmplaceConstantBuffer(DXDevice* device, UINT cbufferSize)
+{
+	constantUpload.emplace_back(std::make_unique<UploadBuffer>(device, cbufferSize));
+	constantDefault.emplace_back(std::make_unique<DefaultBuffer>(device, cbufferSize));
+	constantBufferSize.emplace_back(cbufferSize);
+	mappedCbvData.emplace_back(nullptr);
 }
 
 //Execute，Signal，Sync的if(!populated) return;都是为了处理初始情况。注意Sync的||fenceID==0使得前三帧完全不等待，
@@ -78,6 +82,7 @@ void FrameResource::DrawMesh(DXDevice* device, const RasterShader* shader, PSOMa
 		depthFormat);
 	cmdList->SetPipelineState(pipelineState);
 
+
 	std::vector<D3D12_VERTEX_BUFFER_VIEW> vertexBufferView;
 	mesh->GetVertexBufferView(vertexBufferView);
 	D3D12_INDEX_BUFFER_VIEW indexBufferView = mesh->GetIndexBufferView();
@@ -89,6 +94,25 @@ void FrameResource::DrawMesh(DXDevice* device, const RasterShader* shader, PSOMa
 	
 }
 
+
+void FrameResource::CopyConstantFromUploadToDefault()
+{
+	for (int i = 0;i < constantUpload.size();i++)
+	{
+		cmdList->ResourceBarrier(1,
+			get_rvalue_ptr(CD3DX12_RESOURCE_BARRIER::Transition(
+				constantDefault[i]->GetResource(),
+				D3D12_RESOURCE_STATE_COMMON,
+				D3D12_RESOURCE_STATE_COPY_DEST)));
+		cmdList->CopyBufferRegion(constantDefault[i]->GetResource(), 0, constantUpload[i]->GetResource(), 0, constantBufferSize[i]);
+		cmdList->ResourceBarrier(1,
+			get_rvalue_ptr(CD3DX12_RESOURCE_BARRIER::Transition(
+				constantDefault[i]->GetResource(),
+				D3D12_RESOURCE_STATE_COPY_DEST,
+				D3D12_RESOURCE_STATE_COMMON)));
+	}
+	
+}
 
 void FrameResource::Populate()
 {

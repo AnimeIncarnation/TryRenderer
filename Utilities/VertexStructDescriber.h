@@ -9,8 +9,16 @@
 #include <span>
 
 
+
+
+
+
+
+
 //构造时自动记录类型信息，然后手动调用GetLayout来进行Parse
 namespace rtti {
+
+
 
 	//一个Vertex含有一个InputElementData数组。这个数据结构记录了类型信息
 	struct InputElementData 

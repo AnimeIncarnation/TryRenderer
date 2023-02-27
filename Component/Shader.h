@@ -10,7 +10,7 @@
 #include "../DXSampleHelper.h"
 #include "../RenderBase/DXDevice.h"
 
-//Shader基类含有：shader参数（即根签名），
+//Shader基类主要描述shader参数（即根签名）
 class Shader
 {
 public:

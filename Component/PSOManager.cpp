@@ -32,7 +32,7 @@ ID3D12PipelineState* PSOManager::GetPipelineState(
 	psoDesc.RasterizerState = rasterShader.rasterizeState;
 	psoDesc.BlendState = rasterShader.blendState;
 	psoDesc.DepthStencilState = rasterShader.depthStencilState;
-	psoDesc.InputLayout = { inputLayout.data(), inputLayout.size() };
+	psoDesc.InputLayout = { inputLayout.data(), static_cast<UINT>(inputLayout.size()) };
 	psoDesc.PrimitiveTopologyType = topologyType;
 	psoDesc.DSVFormat = dsvFormat;
 	UINT rtvSize = std::min<UINT>(rtvFormats.size(), 8);
