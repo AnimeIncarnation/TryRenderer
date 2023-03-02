@@ -7,7 +7,7 @@
 #include <memory>
 #include <string>
 #include <span>
-
+#include <set>
 
 
 
@@ -17,6 +17,8 @@
 
 //构造时自动记录类型信息，然后手动调用GetLayout来进行Parse
 namespace rtti {
+			
+	//结构体在最下面噢~
 
 
 
@@ -53,6 +55,7 @@ namespace rtti {
 		
 		//Parser到input_element_desc的接口
 		void GetMeshLayout(uint slot, std::vector<D3D12_INPUT_ELEMENT_DESC>& resultVector) const;
+		void InsertGlobalLayout(std::string name, std::vector<D3D12_INPUT_ELEMENT_DESC>& resultVector)const;
 	};
 
 
@@ -154,6 +157,35 @@ namespace rtti {
 	struct ElementType<DirectX::XMINT4> : public ElementTemplate<DirectX::XMINT4> 
 	{
 		ElementType(const char* semantic) : ElementTemplate<DirectX::XMINT4>(InputElementData{ InputElementData::ScaleType::Int, byte(4), uint(0), std::string(semantic) }) {}
+	};
+
+
+	struct Vertex : rtti::ElementStruct
+	{
+		rtti::ElementType<DirectX::XMFLOAT4> position = "POSITION";
+		rtti::ElementType<DirectX::XMFLOAT3> normal = "NORMAL";
+		rtti::ElementType<DirectX::XMFLOAT4> color = "COLOR";
+		static Vertex& Instance()
+		{
+			static Vertex instance;
+			return instance;
+		}
+	private:
+		Vertex() {};
+	};
+
+	struct Vertex2 : rtti::ElementStruct
+	{
+		rtti::ElementType<DirectX::XMFLOAT4> position = "POSITION";
+		rtti::ElementType<DirectX::XMFLOAT3> normal = "NORMAL";
+		rtti::ElementType<DirectX::XMFLOAT2> texCoord = "TEXCOORD";
+		static Vertex2& Instance()
+		{
+			static Vertex2 instance;
+			return instance;
+		}
+	private:
+		Vertex2() {};
 	};
 }// namespace rtti
 

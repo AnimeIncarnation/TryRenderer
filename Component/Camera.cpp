@@ -50,3 +50,43 @@ Math::Matrix4 const& Camera::GetProjectionMatrix() const
 	return proj;
 }
 
+void Camera::Walk()
+{
+	if(isWalking)
+		position += walkStep * forward;
+}
+
+void Camera::Strafe()
+{
+	if(isStrafing)
+		position += strafeStep * right;
+}
+
+void Camera::UpDown()
+{
+	if (isUpDown)
+		position += upDownStep * up;
+}
+
+void Camera::Move()
+{
+	Walk();
+	Strafe();
+	UpDown();
+}
+
+void Camera::Pitch(float angle)
+{
+	XMMATRIX rotate = XMMatrixRotationAxis(XMLoadFloat3((XMFLOAT3*)&right), angle);
+	XMStoreFloat3((XMFLOAT3*)&up, XMVector3TransformNormal(XMLoadFloat3((XMFLOAT3*)&up), rotate));
+	XMStoreFloat3((XMFLOAT3*)&forward, XMVector3TransformNormal(XMLoadFloat3((XMFLOAT3*)&forward), rotate));
+}
+
+void Camera::RotateY(float angle)
+{
+	//XMMATRIX rotate = XMMatrixRotationY(angle);
+	XMMATRIX rotate = XMMatrixRotationAxis(XMLoadFloat3((XMFLOAT3*)&up), angle);
+	XMStoreFloat3((XMFLOAT3*)&up, XMVector3TransformNormal(XMLoadFloat3((XMFLOAT3*)&up), rotate));
+	XMStoreFloat3((XMFLOAT3*)&right, XMVector3TransformNormal(XMLoadFloat3((XMFLOAT3*)&right), rotate));
+	XMStoreFloat3((XMFLOAT3*)&forward, XMVector3TransformNormal(XMLoadFloat3((XMFLOAT3*)&forward), rotate));
+}

@@ -36,25 +36,24 @@ ConstantBuffer<PerLightConstant> perLightConstants: register(b1);
 struct PSInput
 {
     float4 position : SV_POSITION;
-    float4 color : COLOR;
+    float3 normal : NORMAL;
+    float2 texCoord : TEXCOORD;
 };
 
-PSInput VSMain(float4 position : POSITION, float4 color : COLOR)
+PSInput VSMain(float4 position : POSITION, float2 texCoord : TEXCOORD, float3 normal : NORMAL)
 {
     PSInput result;
-    //result.position = position;
-    //float4 p;
-    //p.x = position.x; p.y = position.y; p.z = position.z; p.w = 1;
     result.position = mul(perCameraConstants.vpMatrix, position);
-    result.position.y -= 30;
-    result.position.z += 6;
-    result.position.w += 6;
-    result.color = color;
+    result.texCoord = texCoord;
+    result.normal = normal;
 
     return result;
 }
 
 float4 PSMain(PSInput input) : SV_TARGET
 {
+    float3 backDir = -perLightConstants.direction;
+    float res = max(0, dot(input.normal, backDir));
+    input.color = float4(res, res, res, 1);
     return input.color;
 }

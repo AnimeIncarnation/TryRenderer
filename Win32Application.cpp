@@ -11,6 +11,7 @@
 
 #include "stdafx.h"
 #include "Win32Application.h"
+#include <windowsx.h>
 
 HWND Win32Application::m_hwnd = nullptr;
 Timer Win32Application::timer = Timer();
@@ -77,6 +78,7 @@ int Win32Application::Run(DXSample* pSample, HINSTANCE hInstance, int nCmdShow)
 // Main message handler for the sample.
 LRESULT CALLBACK Win32Application::WindowProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
+    //wParam为输入的键码，lParam为光标信息
     DXSample* pSample = reinterpret_cast<DXSample*>(GetWindowLongPtr(hWnd, GWLP_USERDATA));
 
     switch (message)
@@ -92,6 +94,7 @@ LRESULT CALLBACK Win32Application::WindowProc(HWND hWnd, UINT message, WPARAM wP
     case WM_KEYDOWN:
         if (pSample)
         {
+           // if (GetForegroundWindow() == hWnd)
             pSample->OnKeyDown(static_cast<UINT8>(wParam));
         }
         return 0;
@@ -102,7 +105,25 @@ LRESULT CALLBACK Win32Application::WindowProc(HWND hWnd, UINT message, WPARAM wP
             pSample->OnKeyUp(static_cast<UINT8>(wParam));
         }
         return 0;
-
+    //case WM_LBUTTONDOWN:
+    //    if (pSample)
+    //    {
+    //        pSample->OnMouseDown(wParam, GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam));
+    //    }
+    //    return 0;
+    //    //鼠标按键抬起时的触发（左中右）
+    //case WM_LBUTTONUP:
+    //    if (pSample)
+    //    {
+    //        pSample->OnMouseUp(wParam, GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam));
+    //    }
+    //    return 0;
+    case WM_MOUSEMOVE:
+        if (pSample)
+        {
+            ////wParam为输入的虚拟键代码，lParam为系统反馈的光标信息，两个辅助函数需要#include <windowsx.h>
+            pSample->OnMouseMove(wParam, GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam));
+        }
     case WM_PAINT:
         if (pSample)
         {

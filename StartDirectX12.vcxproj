@@ -109,13 +109,14 @@
       <PreprocessorDefinitions>WIN32;NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp20</LanguageStandard>
+      <AdditionalIncludeDirectories>$(SolutionDir)Dependencies\include</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>d3d12.lib;dxgi.lib;d3dcompiler.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>assimp\assimp-vc142-mtd.lib;d3d12.lib;dxgi.lib;d3dcompiler.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalLibraryDirectories>$(SolutionDir)Dependencies\lib</AdditionalLibraryDirectories>
     </Link>
   </ItemDefinitionGroup>
@@ -144,13 +145,14 @@
       <PreprocessorDefinitions>NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp20</LanguageStandard>
+      <AdditionalIncludeDirectories>$(SolutionDir)Dependencies\include</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>d3d12.lib;dxgi.lib;d3dcompiler.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>assimp\assimp-vc142-mtd.lib;d3d12.lib;dxgi.lib;d3dcompiler.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalLibraryDirectories>$(SolutionDir)Dependencies\lib</AdditionalLibraryDirectories>
     </Link>
   </ItemDefinitionGroup>
@@ -162,16 +164,16 @@
     <ClCompile Include="DXSample.cpp" />
     <ClCompile Include="Component\RasterShader.cpp" />
     <ClCompile Include="Component\PSOManager.cpp" />
-    <ClCompile Include="Component\Light.cpp" />
     <ClCompile Include="RenderBase\FrameResource.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="RenderBase\DXDevice.cpp" />
     <ClCompile Include="Resources\DefaultBuffer.cpp" />
-    <ClCompile Include="Resources\Mesh.cpp" />
+    <ClCompile Include="Resources\Model.cpp" />
     <ClCompile Include="Resources\UploadBuffer.cpp" />
     <ClCompile Include="Component\Shader.cpp" />
     <ClCompile Include="stdafx.cpp" />
     <ClCompile Include="RenderBase\Timer.cpp" />
+    <ClCompile Include="Resources\Texture.cpp" />
     <ClCompile Include="Utilities\VertexStructDescriber.cpp" />
     <ClCompile Include="Win32Application.cpp" />
   </ItemGroup>
@@ -202,12 +204,13 @@
     <ClInclude Include="Resources\Buffer.h" />
     <ClInclude Include="Resources\BufferView.h" />
     <ClInclude Include="Resources\DefaultBuffer.h" />
-    <ClInclude Include="Resources\Mesh.h" />
+    <ClInclude Include="Resources\Model.h" />
     <ClInclude Include="Resources\Resource.h" />
     <ClInclude Include="Resources\UploadBuffer.h" />
     <ClInclude Include="Component\Shader.h" />
     <ClInclude Include="stdafx.h" />
     <ClInclude Include="RenderBase\Timer.h" />
+    <ClInclude Include="Resources\Texture.h" />
     <ClInclude Include="Utilities\VertexStructDescriber.h" />
     <ClInclude Include="Win32Application.h" />
   </ItemGroup>

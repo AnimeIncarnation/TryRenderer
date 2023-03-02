@@ -1,9 +1,10 @@
 #include "PSOManager.h"
+#include <iostream>
 
 ID3D12PipelineState* PSOManager::GetPipelineState(DXDevice* dxDevice, D3D12_GRAPHICS_PIPELINE_STATE_DESC& psoDesc)
 {
 	auto returnValue = PSOMap.try_emplace(&psoDesc);
-	if(returnValue.second)
+	if (returnValue.second)	   //如果成功插入
 		ThrowIfFailed(dxDevice->Device()->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&returnValue.first->second)));
 	return returnValue.first->second.Get();
 }
@@ -16,7 +17,6 @@ ID3D12PipelineState* PSOManager::GetPipelineState(
 	std::span<DXGI_FORMAT> rtvFormats,
 	DXGI_FORMAT dsvFormat)
 {
-	ID3D12Device* device = dxDevice->Device().Get();
 	D3D12_GRAPHICS_PIPELINE_STATE_DESC  psoDesc = {};	//这里一定要写上={}，否则报错
 	psoDesc.pRootSignature = rasterShader.GetRootSignature();
 	auto GetByteCode = [](const ComPtr<ID3DBlob>& shaderCode) -> D3D12_SHADER_BYTECODE {
@@ -43,5 +43,10 @@ ID3D12PipelineState* PSOManager::GetPipelineState(
 	psoDesc.SampleMask = UINT_MAX;
 	psoDesc.SampleDesc.Count = 1;
 
-	return GetPipelineState(dxDevice, psoDesc);
+	auto returnValue = PSOMap.try_emplace(&psoDesc);
+	if (returnValue.second)	   //如果成功插入
+		ThrowIfFailed(dxDevice->Device()->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&returnValue.first->second)));
+	else
+		std::cout << "fuck" <<std::endl;
+	return returnValue.first->second.Get();
 }

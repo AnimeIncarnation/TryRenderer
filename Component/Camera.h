@@ -5,6 +5,7 @@
 #include "../stdafx.h"
 #include "../DXMath/DXMath.h"
 #include "../DXMath/MathHelper.h"
+#include <iostream>
 
 class Camera
 {
@@ -38,6 +39,13 @@ public:
 	void UpdateProjectionMatrix();
 	Math::Matrix4 const& GetViewMatrix() const;
 	Math::Matrix4 const& GetProjectionMatrix() const;
+
+	void Walk();
+	void Strafe();
+	void UpDown();
+	void Move();
+	void Pitch(float d);
+	void RotateY(float d);
 	
 	float aspect = 1.f;		//宽高比
 private:
@@ -50,13 +58,32 @@ private:
 	bool isOrtho = false;
 	float orthoSize = 5;
 
+
+
 	//camera
+	Math::Matrix4 view = MathHelper::Identity4x4();
+	Math::Matrix4 proj = MathHelper::Identity4x4();
+public:
 	Math::Vector3 position = {0, 0, 0};
 	Math::Vector3 right = {1, 0, 0};
 	Math::Vector3 up = {0, 1, 0};
 	Math::Vector3 forward = {0, 0, 1};
-	Math::Matrix4 view = MathHelper::Identity4x4();
-	Math::Matrix4 proj = MathHelper::Identity4x4();
+
+	//camera移动控制
+	bool isWalking = false;
+	float walkStep = 0;
+	bool isStrafing = false;
+	float strafeStep = 0;
+	bool isUpDown = false;
+	float upDownStep = 0;
+	void OutputPosition()
+	{
+		std::cout << "Position: " << position.x << "," << position.y << "," << position.z << std::endl;
+	}
+	void OutputLookDir()
+	{
+		std::cout << "LookDir: " << forward.x << "," << forward.y << "," << forward.z << "," << std::endl;
+	}
 };
 
 #endif

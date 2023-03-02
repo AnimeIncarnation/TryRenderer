@@ -1,6 +1,7 @@
 #include "UploadBuffer.h"
 #include "../DXSampleHelper.h"
 #include "../stdafx.h"
+#include <iostream>
 
 UploadBuffer::UploadBuffer(DXDevice* device, UINT64 size):Buffer(device),size(size)
 {
@@ -16,10 +17,16 @@ UploadBuffer::UploadBuffer(DXDevice* device, UINT64 size):Buffer(device),size(si
 void UploadBuffer::CopyData(uint64 offset, std::span<const byte> data)
 {
     void* mappedCPUPtr;
-    D3D12_RANGE range{offset, min(size, offset + data.size())};    //range就是一个含有begin和end的结构
-    ThrowIfFailed(resource->Map(0, &range, reinterpret_cast<void**>(&mappedCPUPtr)));
-    memcpy(reinterpret_cast<byte*>(mappedCPUPtr) + offset, data.data(), range.End - range.Begin);
-    resource->Unmap(0, &range);
+    //D3D12_RANGE range{offset, min(size, offset + data.size())};    //range就是一个含有begin和end的结构
+    //ThrowIfFailed(resource->Map(0, &range, reinterpret_cast<void**>(&mappedCPUPtr)));
+    //memcpy(reinterpret_cast<byte*>(mappedCPUPtr) + offset, data.data(), range.End - range.Begin);
+    //resource->Unmap(0, &range);
+    // 
+    //nullptr表示全部范围
+    ThrowIfFailed(resource->Map(0, nullptr, reinterpret_cast<void**>(&mappedCPUPtr)));
+    memcpy(reinterpret_cast<byte*>(mappedCPUPtr) + offset, data.data(), data.size());
+    //memcpy(&mappedCPUPtr[data.size()], data.data(), data.size());
+    resource->Unmap(0, nullptr);
 }
 
 ID3D12Resource* UploadBuffer::GetResource() const

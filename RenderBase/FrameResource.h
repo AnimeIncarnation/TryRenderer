@@ -7,7 +7,7 @@
 #include "../DXSampleHelper.h"
 #include "../Resources/UploadBuffer.h"
 #include "../Resources/DefaultBuffer.h"
-#include "../Resources/Mesh.h"
+#include "../Resources/Model.h"
 #include "../DXMath/MathHelper.h"
 #include "../Component/PSOManager.h"
 #include "../Component/RasterShader.h"
@@ -47,13 +47,9 @@ public:
         CD3DX12_CPU_DESCRIPTOR_HANDLE const* dsvHandle = nullptr);
     void ClearRenderTarget(const CD3DX12_CPU_DESCRIPTOR_HANDLE& rtv);   //Clear RT操作
     void ClearDepthStencilBuffer(const CD3DX12_CPU_DESCRIPTOR_HANDLE& dsv); //Clear DS操作
-    void DrawMesh(  //IA，Shader参数设置 + Draw
-        DXDevice* device,
-        const RasterShader* shader, 
-        PSOManager* psoManager, 
-        Mesh* mesh,
-        DXGI_FORMAT colorFormat,
-        DXGI_FORMAT depthFormat);
+    //设置IA，设置PSO + Draw
+    void DrawMesh(DXDevice* device, Model* model, ID3D12PipelineState* pipelineState);
+    //void DrawMesh(DXDevice* device, D3D12_VERTEX_BUFFER_VIEW* vbView, D3D12_INDEX_BUFFER_VIEW* ibView, ID3D12PipelineState* pipelineState, UINT64 indexCount);
 
 };
 

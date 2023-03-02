@@ -7,12 +7,14 @@
 
 class UploadBuffer final :public Buffer
 {
-private:
 	ComPtr<ID3D12Resource> resource;
 	UINT64 size;
 
 public:
 	UploadBuffer(DXDevice* device, UINT64 size);
+	UploadBuffer(const UploadBuffer&) = delete;
+	UploadBuffer& operator=(const UploadBuffer&) = delete;
+	UploadBuffer(UploadBuffer&&) = default;
 
 	ID3D12Resource* GetResource() const;
 	void CopyData(uint64 offset, std::span<byte const> data);//全用UploadBuffer来copy数据

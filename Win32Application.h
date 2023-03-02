@@ -15,7 +15,6 @@
 #include "RenderBase/Timer.h"
 
 class DXSample;
-
 class Win32Application
 {
 public:

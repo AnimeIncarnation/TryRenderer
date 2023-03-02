@@ -1,8 +1,13 @@
 #include "VertexStructDescriber.h"
 #include <string_view>
+#include <unordered_map>
+#include <iostream>
 
 namespace rtti
 {
+	////记录全局的顶点输入布局
+	std::unordered_map<std::string, std::vector<D3D12_INPUT_ELEMENT_DESC>> GlobalLayout;
+
 	//curStruct指向当前正在构造的ElementStruct对象。
 	//因为设计的是一个ElementStruct和一个ElementDescriber的模式，后者要对前者进行设置，修改等操作。前者必须提供一个接口供后者使用，
 	//同时ElementStruct不唯一，所以不能使用单例。在cpp文件中定义一个static ElementStruct*而不是类内定义一个ElementStruct*，很巧妙地
@@ -105,19 +110,29 @@ namespace rtti
 				return DXGI_FORMAT_UNKNOWN;
 			}
 		};
-		uint offset = 0;
+		uint Offset = 0;
 		for (size_t i = 0; i < variables.size(); ++i)
 		{
 			const rtti::InputElementData& element = variables[i];
 			D3D12_INPUT_ELEMENT_DESC&     out	  = resultVector.emplace_back();   //描述顶点着色器的形参表
 			out = { element.semantic.c_str(),						//sementic
-					  uint(element.semanticIndex),					//sementicIndex
+					  uint(element.semanticIndex),					//sementicIndex：如TEXCOORD0和TEXCOORD1，相同的sementic用不同的index区分
 					  getFormat(element),							//format：根据scale和dimension选择
-					  slot,											//inputSlot
-					  offset,										//alignByteOffset
+					  slot,											//inputSlot：同样的思路：一个slot对应一个buffer。一种vertex中的所有element全走一个slot
+					  Offset,										//alignByteOffset
 					  D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA,	//inputSlotClass：可选择该数据是per_vertex的还是per_instance的。
 					  uint(0) };									//instanceDataStepRate：也与实例化有关
-			offset += element.GetSize();
+			Offset += element.GetSize();
+		}
+	}
+
+	void ElementStruct::InsertGlobalLayout(std::string name , std::vector<D3D12_INPUT_ELEMENT_DESC>& resultVector) const
+	{
+		//set中没有时，插入set
+		if (GlobalLayout.find(name) == GlobalLayout.end())
+		{
+			std::cout << "InsertGlobalLayoutSucceed" << std::endl;
+			GlobalLayout.insert({ name, resultVector });
 		}
 	}
 }

@@ -1,6 +1,6 @@
 #pragma once
-#ifndef _MODEL_H_
-#define _MODEL_H_
+#ifndef _MODELIMPORTER_H_
+#define _MODELIMPORTER_H_
 #include <assimp/Importer.hpp>
 #include <assimp/scene.h>
 #include <assimp/postprocess.h>
@@ -17,15 +17,22 @@ struct Vertex
 	DirectX::XMFLOAT2 texCoord;
 };
 
-struct Model
+struct Mesh
 {
 	std::vector<Vertex> vertices;
 	std::vector<UINT> indices;
 };
 
+struct TextureData
+{
+	unsigned int id;
+	std::string type;
+};
+
 class ModelImporter
 {
-	std::vector<Model> models;
+	std::vector<Mesh> model;
+	std::vector<TextureData> texData;
 	Assimp::Importer importer;
 
 public:
@@ -38,7 +45,7 @@ public:
 		//aiProcess_SplitLargeMeshes：将比较大的网格分割成更小的子网格，如果你的渲染有最大顶点数限制，只能渲染较小的网格，那么它会非常有用
 		//aiProcess_OptimizeMeshes：和上个选项相反，它会将多个小网格拼接为一个大的网格，减少绘制调用从而进行优化
 		const aiScene* scene = importer.ReadFile(path, aiProcess_Triangulate);
-		std::cout << scene->mNumMeshes;
+		//std::cout << scene->mNumMeshes;
 		ProcessNode(scene->mRootNode, scene);
 	}
 
@@ -59,9 +66,9 @@ public:
 
 	void ProcessModel(UINT index, aiMesh* mesh, const aiScene* scene)
 	{
-		Model& currModel = models.emplace_back();
-		currModel.vertices.reserve(mesh->mNumVertices);
-		currModel.indices.reserve(mesh->mNumFaces * 3);
+		Mesh& currMesh = model.emplace_back();
+		currMesh.vertices.reserve(mesh->mNumVertices);
+		currMesh.indices.reserve(mesh->mNumFaces * 3);
 
 		// 复制顶点位置、法线和纹理坐标
 		for (UINT i = 0; i < mesh->mNumVertices; i++)
@@ -74,7 +81,7 @@ public:
 				vertex.texCoord = { mesh->mTextureCoords[0][i].x, mesh->mTextureCoords[0][i].y };
 			else
 				vertex.texCoord = {0.f,0.f};
-			currModel.vertices.emplace_back(vertex);
+			currMesh.vertices.emplace_back(vertex);
 		}
 		
 		// 处理索引
@@ -82,16 +89,33 @@ public:
 		{
 			aiFace face = mesh->mFaces[i];
 			for (unsigned int j = 0; j < face.mNumIndices; j++)
-				currModel.indices.emplace_back(face.mIndices[j]);
+				currMesh.indices.emplace_back(face.mIndices[j]);
 		}
 		
-		// TODO: 处理材质
+		// 处理材质
 		//if (mesh->mMaterialIndex >= 0)
 		//{
+		//	aiMaterial* material = scene->mMaterials[mesh->mMaterialIndex];
+		//	for (UINT j = 0; j < mat->GetTextureCount(type); j++)
+		//	{
+		//		aiString str;
+		//		mat->GetTexture(type, j, &str);
+		//		Texture texture;
+		//		texture.id = TextureFromFile(str.C_Str(), directory);
+		//		texture.type = typeName;
+		//		texture.path = str;
+		//		textures.push_back(texture);
+		//	}
+		//	textures.insert(textures.end(), diffuseMaps.begin(), diffuseMaps.end());
+		//	std::vector<Texture> specularMaps = loadMaterialTextures(material,
+		//		aiTextureType_SPECULAR, "texture_specular");
+		//	textures.insert(textures.end(), specularMaps.begin(), specularMaps.end());
 		//}
 	}
 
-	std::span<Model const> GetModels()const { return models; }
+	void ClearData() { model.clear(); }
+
+	std::span<Mesh const> GetMeshes()const { return model; }
 };
 
 #endif

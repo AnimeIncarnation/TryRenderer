@@ -18,7 +18,7 @@
 #include "DXSample.h"
 #include "RenderBase/DXDevice.h"
 #include "Utilities/VertexStructDescriber.h"
-#include "Resources/Mesh.h"
+#include "Resources/Model.h"
 #include "Resources/UploadBuffer.h"
 #include "RenderBase/FrameResource.h"
 #include "Component/Camera.h"
@@ -49,22 +49,6 @@ public:
 private:
     static const UINT FrameCount = 3;
     
-    struct Vertex : rtti::ElementStruct
-    {
-        rtti::ElementType<XMFLOAT4> position = "POSITION";
-        rtti::ElementType<XMFLOAT3> normal = "NORMAL";
-        rtti::ElementType<XMFLOAT4> color = "COLOR";
-        static Vertex& Instance()
-        {
-            static Vertex instance;
-            return instance;
-        }
-    private:
-        Vertex() {};
-    };
-
-   
-
     // Pipeline objects.
     std::unique_ptr<DXDevice> dxDevice;
     std::unique_ptr<FrameResource> frameResources[FrameCount];
@@ -88,12 +72,10 @@ private:
     // App resources.
     PerCameraConstant cameraConstantData;
     PerLightConstant lightConstantData;
-    std::unique_ptr<Mesh> cubeMesh;
-    std::unique_ptr<UploadBuffer> uploadBufferVertex;
-    std::unique_ptr<UploadBuffer> uploadBufferIndex;
-    std::unique_ptr<Camera> mainCamera;
     std::unique_ptr<ModelImporter> modelImporter;
     std::vector<Light> sceneLights;
+    std::vector<Model> models;
+    std::unique_ptr<Camera> mainCamera;
 
     // Synchronization objects.
     // CommandListHandle currentCommandListHandle;
@@ -104,4 +86,9 @@ private:
     void LoadPipeline();
     void LoadAssets();
     void PopulateCommandList(FrameResource& frameRes, UINT64 frameIndex);
+    void OnMouseMove(WPARAM btnState, int x, int y);
+    void OnMouseDown(WPARAM btnState, int x, int y);
+    void OnMouseUp(WPARAM btnState, int x, int y);
+    void OnKeyDown(UINT8 key);
+    void OnKeyUp(UINT8 key);
 };
