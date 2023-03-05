@@ -179,8 +179,17 @@
     <ClInclude Include="Resources\Texture.h">
       <Filter>头文件</Filter>
     </ClInclude>
+    <ClInclude Include="RenderBase\stb_image.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <FxCompile Include="Shaders\shaders.hlsl" />
+    <FxCompile Include="Shaders\MeshShader.hlsl" />
+    <FxCompile Include="Shaders\PixelShader1.hlsl" />
+    <FxCompile Include="Shaders\VertexShader1.hlsl" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="packages.config" />
   </ItemGroup>
 </Project>

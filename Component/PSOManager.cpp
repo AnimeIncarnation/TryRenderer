@@ -1,52 +1,84 @@
 #include "PSOManager.h"
 #include <iostream>
 
-ID3D12PipelineState* PSOManager::GetPipelineState(DXDevice* dxDevice, D3D12_GRAPHICS_PIPELINE_STATE_DESC& psoDesc)
+ID3D12PipelineState* PSOManager::GetPipelineState(std::string name)
 {
-	auto returnValue = PSOMap.try_emplace(&psoDesc);
-	if (returnValue.second)	   //如果成功插入
-		ThrowIfFailed(dxDevice->Device()->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&returnValue.first->second)));
-	return returnValue.first->second.Get();
+	if (PSOMap.find(name) != PSOMap.end())
+		return PSOMap[name].Get();
+	return nullptr;
 }
 
-ID3D12PipelineState* PSOManager::GetPipelineState(
+
+
+ID3D12PipelineState* PSOManager::GetSetPipelineState(
 	DXDevice* dxDevice,
 	const RasterShader& rasterShader,
 	std::span<const D3D12_INPUT_ELEMENT_DESC> inputLayout,
 	D3D12_PRIMITIVE_TOPOLOGY_TYPE topologyType,
 	std::span<DXGI_FORMAT> rtvFormats,
-	DXGI_FORMAT dsvFormat)
+	DXGI_FORMAT dsvFormat,
+	std::string name)
 {
-	D3D12_GRAPHICS_PIPELINE_STATE_DESC  psoDesc = {};	//这里一定要写上={}，否则报错
-	psoDesc.pRootSignature = rasterShader.GetRootSignature();
+	//如果Map中已经有了，则直接返回PSO
+	if (PSOMap.find(name) != PSOMap.end())
+		return PSOMap[name].Get();
+	//否则创建PSO并插入Map
+	struct PSO_STREAM
+	{
+		CD3DX12_PIPELINE_STATE_STREAM_ROOT_SIGNATURE RootSignature;
+		CD3DX12_PIPELINE_STATE_STREAM_INPUT_LAYOUT InputLayout;
+		CD3DX12_PIPELINE_STATE_STREAM_MS MS;
+		//CD3DX12_PIPELINE_STATE_STREAM_VS VS;
+		CD3DX12_PIPELINE_STATE_STREAM_PS PS;
+		CD3DX12_PIPELINE_STATE_STREAM_RASTERIZER RasterizerState;
+		CD3DX12_PIPELINE_STATE_STREAM_BLEND_DESC BlendState;
+		CD3DX12_PIPELINE_STATE_STREAM_DEPTH_STENCIL DepthStencilState;
+		CD3DX12_PIPELINE_STATE_STREAM_PRIMITIVE_TOPOLOGY PrimitiveTopologyType;
+		CD3DX12_PIPELINE_STATE_STREAM_DEPTH_STENCIL_FORMAT DSVFormat;
+		CD3DX12_PIPELINE_STATE_STREAM_RENDER_TARGET_FORMATS RTVFormats;
+		CD3DX12_PIPELINE_STATE_STREAM_SAMPLE_DESC SampleDesc;
+		CD3DX12_PIPELINE_STATE_STREAM_SAMPLE_MASK SampleMask;
+	} Stream;
+
 	auto GetByteCode = [](const ComPtr<ID3DBlob>& shaderCode) -> D3D12_SHADER_BYTECODE {
 		if (shaderCode)
 			return CD3DX12_SHADER_BYTECODE(shaderCode.Get());
 		else
 			return CD3DX12_SHADER_BYTECODE(nullptr, 0); //shaderCode*, byteLength
 	};
-	psoDesc.VS = GetByteCode(rasterShader.vsShader.Get());
-	psoDesc.PS = GetByteCode(rasterShader.psShader.Get());
-	psoDesc.DS = GetByteCode(rasterShader.dsShader.Get());
-	psoDesc.HS = GetByteCode(rasterShader.dsShader.Get());//CD3DX12_SHADER_BYTECODE((void*)0xcccccccc,(size_t)3435973836);
-	psoDesc.RasterizerState = rasterShader.rasterizeState;
-	psoDesc.BlendState = rasterShader.blendState;
-	psoDesc.DepthStencilState = rasterShader.depthStencilState;
-	psoDesc.InputLayout = { inputLayout.data(), static_cast<UINT>(inputLayout.size()) };
-	psoDesc.PrimitiveTopologyType = topologyType;
-	psoDesc.DSVFormat = dsvFormat;
-	UINT rtvSize = std::min<UINT>(rtvFormats.size(), 8);
-	psoDesc.NumRenderTargets = rtvSize;
-	for (UINT i = 0;i < rtvSize;i++)
-		psoDesc.RTVFormats[i] = rtvFormats[i];
+	Stream.RootSignature = rasterShader.GetRootSignature();
+	Stream.MS = { rasterShader.msShader.data, rasterShader.msShader.size };
+	//Stream.VS = {rasterShader.vsShader.data, rasterShader.vsShader.size};
+	Stream.PS = { rasterShader.psShader.data, rasterShader.psShader.size };
+	Stream.RasterizerState = CD3DX12_RASTERIZER_DESC(rasterShader.rasterizeState);
+	Stream.BlendState = CD3DX12_BLEND_DESC(rasterShader.blendState);
+	Stream.DepthStencilState = CD3DX12_DEPTH_STENCIL_DESC(rasterShader.depthStencilState);
+	//Stream.InputLayout = { inputLayout.data(), static_cast<UINT>(inputLayout.size()) };	 //如果使用MeshShader则不能使用InputLayout
+	Stream.PrimitiveTopologyType = topologyType;
+	Stream.DSVFormat = dsvFormat;
+	D3D12_RT_FORMAT_ARRAY rtvFormatArray;
+	rtvFormatArray.NumRenderTargets = std::min<UINT>(rtvFormats.size(), 8);
+	for (UINT i = 0;i < 8;i++)
+	{
+		if(i >= rtvFormatArray.NumRenderTargets)
+			rtvFormatArray.RTFormats[i] = DXGI_FORMAT_UNKNOWN;
+		else
+			rtvFormatArray.RTFormats[i] = rtvFormats[i];
+	}
+	Stream.RTVFormats = rtvFormatArray;
 	//超采样相关直接硬编码
-	psoDesc.SampleMask = UINT_MAX;
-	psoDesc.SampleDesc.Count = 1;
+	Stream.SampleMask = UINT_MAX;
+	DXGI_SAMPLE_DESC sampleDesc;
+	sampleDesc.Count = 1;
+	sampleDesc.Quality = 0;
+	Stream.SampleDesc = sampleDesc;
 
-	auto returnValue = PSOMap.try_emplace(&psoDesc);
-	if (returnValue.second)	   //如果成功插入
-		ThrowIfFailed(dxDevice->Device()->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&returnValue.first->second)));
-	else
-		std::cout << "fuck" <<std::endl;
-	return returnValue.first->second.Get();
+	D3D12_PIPELINE_STATE_STREAM_DESC streamDesc = {};
+	streamDesc.pPipelineStateSubobjectStream = &Stream;
+	streamDesc.SizeInBytes = sizeof(Stream);
+
+	ID3D12PipelineState* spPso;
+	ThrowIfFailed(dxDevice->Device()->CreatePipelineState(&streamDesc, IID_PPV_ARGS(&spPso)));
+	PSOMap.insert({ name, spPso });
+	return spPso;
 }

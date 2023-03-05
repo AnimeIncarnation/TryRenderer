@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <Import Project="packages\Microsoft.Direct3D.D3D12.1.608.3\build\native\Microsoft.Direct3D.D3D12.props" Condition="Exists('packages\Microsoft.Direct3D.D3D12.1.608.3\build\native\Microsoft.Direct3D.D3D12.props')" />
   <ItemGroup Label="ProjectConfigurations">
     <ProjectConfiguration Include="Debug|Win32">
       <Configuration>Debug</Configuration>
@@ -135,6 +136,10 @@
       <AdditionalDependencies>assimp\assimp-vc142-mtd.lib;shell32.lib;user32.lib;D3D12.lib;dxgi.lib;d3dcompiler.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalLibraryDirectories>$(SolutionDir)Dependencies\lib</AdditionalLibraryDirectories>
     </Link>
+    <FxCompile>
+      <ShaderModel>6.5</ShaderModel>
+      <ObjectFileOutput>$(SolutionDir)Shaders\%(Filename).cso</ObjectFileOutput>
+    </FxCompile>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <ClCompile>
@@ -155,6 +160,10 @@
       <AdditionalDependencies>assimp\assimp-vc142-mtd.lib;d3d12.lib;dxgi.lib;d3dcompiler.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalLibraryDirectories>$(SolutionDir)Dependencies\lib</AdditionalLibraryDirectories>
     </Link>
+    <FxCompile>
+      <ShaderModel>6.5</ShaderModel>
+      <ObjectFileOutput>$(SolutionDir)Shaders\%(Filename).cso</ObjectFileOutput>
+    </FxCompile>
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="Component\Camera.cpp" />
@@ -201,6 +210,7 @@
     <ClInclude Include="RenderBase\FrameResource.h" />
     <ClInclude Include="Metalib.h" />
     <ClInclude Include="RenderBase\DXDevice.h" />
+    <ClInclude Include="RenderBase\stb_image.h" />
     <ClInclude Include="Resources\Buffer.h" />
     <ClInclude Include="Resources\BufferView.h" />
     <ClInclude Include="Resources\DefaultBuffer.h" />
@@ -215,6 +225,16 @@
     <ClInclude Include="Win32Application.h" />
   </ItemGroup>
   <ItemGroup>
+    <FxCompile Include="Shaders\MeshShader.hlsl">
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Mesh</ShaderType>
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Mesh</ShaderType>
+    </FxCompile>
+    <FxCompile Include="Shaders\PixelShader1.hlsl">
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Pixel</ShaderType>
+      <ShaderModel Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">6.5</ShaderModel>
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Pixel</ShaderType>
+      <ShaderModel Condition="'$(Configuration)|$(Platform)'=='Release|x64'">6.5</ShaderModel>
+    </FxCompile>
     <FxCompile Include="Shaders\shaders.hlsl">
       <ShaderType Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
       </ShaderType>
@@ -227,8 +247,25 @@
       <ShaderModel Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">5.1</ShaderModel>
       <ShaderModel Condition="'$(Configuration)|$(Platform)'=='Release|x64'">5.1</ShaderModel>
     </FxCompile>
+    <FxCompile Include="Shaders\VertexShader1.hlsl">
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Vertex</ShaderType>
+      <ShaderModel Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">5.1</ShaderModel>
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Vertex</ShaderType>
+      <ShaderModel Condition="'$(Configuration)|$(Platform)'=='Release|x64'">5.1</ShaderModel>
+    </FxCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="packages.config" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
+    <Import Project="packages\Microsoft.Direct3D.D3D12.1.608.3\build\native\Microsoft.Direct3D.D3D12.targets" Condition="Exists('packages\Microsoft.Direct3D.D3D12.1.608.3\build\native\Microsoft.Direct3D.D3D12.targets')" />
   </ImportGroup>
+  <Target Name="EnsureNuGetPackageBuildImports" BeforeTargets="PrepareForBuild">
+    <PropertyGroup>
+      <ErrorText>这台计算机上缺少此项目引用的 NuGet 程序包。使用“NuGet 程序包还原”可下载这些程序包。有关更多信息，请参见 http://go.microsoft.com/fwlink/?LinkID=322105。缺少的文件是 {0}。</ErrorText>
+    </PropertyGroup>
+    <Error Condition="!Exists('packages\Microsoft.Direct3D.D3D12.1.608.3\build\native\Microsoft.Direct3D.D3D12.props')" Text="$([System.String]::Format('$(ErrorText)', 'packages\Microsoft.Direct3D.D3D12.1.608.3\build\native\Microsoft.Direct3D.D3D12.props'))" />
+    <Error Condition="!Exists('packages\Microsoft.Direct3D.D3D12.1.608.3\build\native\Microsoft.Direct3D.D3D12.targets')" Text="$([System.String]::Format('$(ErrorText)', 'packages\Microsoft.Direct3D.D3D12.1.608.3\build\native\Microsoft.Direct3D.D3D12.targets'))" />
+  </Target>
 </Project>

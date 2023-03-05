@@ -19,6 +19,8 @@
 #include <string>
 #include <windowsx.h>
 
+
+
 namespace rtti
 {
     extern std::unordered_map<std::string, std::vector<D3D12_INPUT_ELEMENT_DESC>> GlobalLayout;
@@ -37,8 +39,10 @@ Engine::Engine(UINT width, UINT height, std::wstring name) :
 
 void Engine::OnInit()
 {
+    //打开控制台
     AllocConsole();
     freopen("CONOUT$", "w", stdout);
+
     LoadPipeline();
     LoadAssets();
 }
@@ -64,7 +68,7 @@ void Engine::LoadPipeline()
         swapChainDesc.BufferCount = FrameCount;
         swapChainDesc.Width = m_width;
         swapChainDesc.Height = m_height;
-        swapChainDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+        swapChainDesc.Format = DXGI_FORMAT_R10G10B10A2_UNORM;      //8888UNORM, 28
         swapChainDesc.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
         swapChainDesc.SwapEffect = DXGI_SWAP_EFFECT_FLIP_DISCARD;
         swapChainDesc.SampleDesc.Count = 1;
@@ -84,7 +88,7 @@ void Engine::LoadPipeline()
         m_frameIndex = m_swapChain->GetCurrentBackBufferIndex();
     }
   
-    //二、创建描述符堆（RTV堆，CBV堆，DSV堆），创建多个RTV
+    //二、创建描述符堆（RTV堆，CSU堆，DSV堆），创建多个RTV
     {
         //1. 创建描述符堆
         {
@@ -100,7 +104,7 @@ void Engine::LoadPipeline()
             // Flags indicate that this descriptor heap can be bound to the pipeline 
             // and that descriptors contained in it can be referenced by a root table.
             D3D12_DESCRIPTOR_HEAP_DESC cbvHeapDesc = {};
-            cbvHeapDesc.NumDescriptors = FrameCount * 2 * 2; //FrameCount, Default/Upload代表2, 再乘以cb的种类（PerCamera, PerLight）
+            cbvHeapDesc.NumDescriptors = FrameCount * 2 * 2 + 10; //FrameCount, Default/Upload代表2, 再乘以cb的种类（PerCamera, PerLight）。+10是给纹理SRV留了很多空间
             cbvHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
             cbvHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
             ThrowIfFailed(dxDevice->Device()->CreateDescriptorHeap(&cbvHeapDesc, IID_PPV_ARGS(&m_cbvHeap)));
@@ -229,7 +233,7 @@ void Engine::LoadAssets()
         ThrowIfFailed(cmdList->Reset(cmdAlloc.Get(), nullptr));
         //导入模型
         modelImporter = std::make_unique<ModelImporter>();
-        modelImporter->Import("Models/nanosuit/nanosuit.obj");
+        modelImporter->Import(dxDevice.get(), "Models/nanosuit/nanosuit.obj");
 
         ////parse模型
         models.emplace_back(dxDevice.get());
@@ -239,7 +243,7 @@ void Engine::LoadAssets()
         
         //model1.SetInputLayout(&rtti::Vertex::Instance(), 0, "Position4Normal3Color4");    //struct, slot = 0, layoutName
         //model1.ParseFromSpansAndUpload(cmdList.Get(), vertices, indices);
-        model1.SetInputLayout(&rtti::Vertex2::Instance(), 0, "Position4Normal3TexCoord2");    //struct, slot = 0, layoutName
+        model1.SetInputLayout(&rtti::Vertex::Instance(), 0, "Position4Normal3Color4");    //struct, slot = 0, layoutName
         model1.ParseFromAssimpAndUpload(cmdList.Get(), modelImporter.get());
     }
 
@@ -304,23 +308,12 @@ void Engine::LoadAssets()
         colorShader = std::make_unique<RasterShader>(shaderParams, dxDevice.get());
     }
         
-    //四、创建RasterShader，创建PSO（vs和ps的编译，RasterShader也记录PSO相关的光栅化信息）
+    //四、利用编译期编译好的MS/VS和PS创建RasterShader，创建PSO（RasterShader也记录PSO相关的光栅化信息）
     {
-        m_psoManager = std::make_unique<PSOManager>();
-        //使用RasterShader的信息构建pipelineState
-        ComPtr<ID3DBlob> vertexShader;
-        ComPtr<ID3DBlob> pixelShader;
-#if defined(_DEBUG)
-        // Enable better shader debugging with the graphics debugging tools.
-        UINT compileFlags = D3DCOMPILE_DEBUG | D3DCOMPILE_SKIP_OPTIMIZATION;
-#else
-        UINT compileFlags = 0;
-#endif
-        //注：使用GetAssetFullPath时Throw错误，直接写入shaders.hlsl后正常运行
-        ThrowIfFailed(D3DCompileFromFile(std::wstring(L"Shaders/shaders.hlsl").c_str(), nullptr, nullptr, "VSMain", "vs_5_1", compileFlags, 0, &vertexShader, nullptr));
-        ThrowIfFailed(D3DCompileFromFile(std::wstring(L"Shaders/shaders.hlsl").c_str(), nullptr, nullptr, "PSMain", "ps_5_1", compileFlags, 0, &pixelShader, nullptr));
-        colorShader->vsShader = vertexShader;
-        colorShader->psShader = pixelShader;
+        //Shader的编译方式采取在编译项目时共同编译，运行时直接拿.cso文件即可
+        ReadDataFromFile(std::wstring(L"Shaders/VertexShader1.cso").c_str(), &colorShader->vsShader.data, &colorShader->vsShader.size);
+        ReadDataFromFile(std::wstring(L"Shaders/PixelShader1.cso").c_str(), &colorShader->psShader.data, &colorShader->psShader.size);
+        ReadDataFromFile(std::wstring(L"Shaders/MeshShader.cso").c_str(), &colorShader->msShader.data, &colorShader->msShader.size);
         colorShader->rasterizeState = CD3DX12_RASTERIZER_DESC(D3D12_DEFAULT);
         colorShader->blendState = CD3DX12_BLEND_DESC(D3D12_DEFAULT);
         colorShader->depthStencilState.DepthEnable = TRUE;
@@ -329,16 +322,19 @@ void Engine::LoadAssets()
         colorShader->depthStencilState.StencilEnable = FALSE;
 
         std::vector<DXGI_FORMAT> rtvFmt;
-        rtvFmt.push_back(DXGI_FORMAT_R8G8B8A8_UNORM);
+        rtvFmt.push_back(DXGI_FORMAT_R10G10B10A2_UNORM);
         DXGI_FORMAT dsvFmt = DXGI_FORMAT_D32_FLOAT;
-        if(rtti::GlobalLayout.find("Position4Normal3Color4") != rtti::GlobalLayout.end())
-            m_pipelineState = m_psoManager->GetPipelineState( //使用PSOManager创建了PipelineState
+
+        m_psoManager = std::make_unique<PSOManager>();
+        if (rtti::GlobalLayout.find("Position4Normal3Color4") != rtti::GlobalLayout.end())
+            m_pipelineState = m_psoManager->GetSetPipelineState( //使用PSOManager创建了PipelineState
                 dxDevice.get(),
                 *colorShader,
                 rtti::GlobalLayout["Position4Normal3Color4"],
                 D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE,
                 rtvFmt,
-                dsvFmt);
+                dsvFmt,
+                "MeshPixel1");
     }
 
     //五、创建同步用围栏，等待前LoadAssets阶段完成
@@ -392,7 +388,6 @@ void Engine::OnUpdate(FrameResource& frameRes, UINT64 frameIndex)
 
 
     //这里不Execute，等和populate一起执行。不然会出错，必须要同步才行
-
     //ThrowIfFailed(cmdList->Close());
     //ID3D12CommandList* ppCommandLists[] = { cmdList };
     //m_commandQueue->ExecuteCommandLists(array_count(ppCommandLists), ppCommandLists);
@@ -509,7 +504,7 @@ void Engine::OnKeyDown(UINT8 key)
     else if (GetAsyncKeyState('Q') & 0x8000)
     {
         mainCamera->isUpDown = true;
-        mainCamera->upDownStep = -0.005f;
+        mainCamera->upDownStep = -0.1f;
     }
 }
 

@@ -37,14 +37,14 @@ struct PSInput
 {
     float4 position : SV_POSITION;
     float3 normal : NORMAL;
-    float2 texCoord : TEXCOORD;
+    float4 color : COLOR;
 };
 
-PSInput VSMain(float4 position : POSITION, float2 texCoord : TEXCOORD, float3 normal : NORMAL)
+PSInput VSMain(float4 position : POSITION, float3 normal : NORMAL, float4 color: COLOR)
 {
     PSInput result;
     result.position = mul(perCameraConstants.vpMatrix, position);
-    result.texCoord = texCoord;
+    result.color = color;
     result.normal = normal;
 
     return result;

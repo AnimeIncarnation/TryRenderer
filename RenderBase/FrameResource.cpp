@@ -59,7 +59,7 @@ void FrameResource::SetRenderTarget(CD3DX12_VIEWPORT const* viewport, CD3DX12_RE
 //Clear1
 void FrameResource::ClearRenderTarget(const CD3DX12_CPU_DESCRIPTOR_HANDLE& rtvHandle)
 {
-	const float clearColor[] = { 0.0f, 0.2f, 0.3f, 1.0f };
+	const float clearColor[] = { 0.0f, 0.2f, 0.3f, 1.0f };	   //0231
 	cmdList->ClearRenderTargetView(rtvHandle, clearColor, 0, nullptr);
 }
 
@@ -75,10 +75,11 @@ void FrameResource::DrawMesh(DXDevice* device, Model* model, ID3D12PipelineState
 	cmdList->SetPipelineState(pipelineState);
 	for (int i = 0; i < model->VertexBuffers().size();i++)
 	{
-		cmdList->IASetVertexBuffers(0, 1, &model->GetVertexBufferView()[i]);
-		cmdList->IASetIndexBuffer(&model->GetIndexBufferView()[i]);
-		cmdList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);      //更细化的图元拓扑：列表/条带......
-		cmdList->DrawIndexedInstanced(model->GetIndiceCount()[i], 1, 0, 0, 0);
+		//cmdList->IASetVertexBuffers(0, 1, &model->GetVertexBufferView()[i]);
+		//cmdList->IASetIndexBuffer(&model->GetIndexBufferView()[i]);
+		//cmdList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);      //更细化的图元拓扑：列表/条带......
+		//cmdList->DrawIndexedInstanced(model->GetIndiceCount()[i], 1, 0, 0, 0);
+		cmdList->DispatchMesh(1, 1, 1);
 	}
 }
 

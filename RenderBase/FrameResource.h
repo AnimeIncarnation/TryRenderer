@@ -24,7 +24,7 @@ class FrameResource
 {
 public:
 	ComPtr<ID3D12CommandAllocator> cmdAllocator;
-	ComPtr<ID3D12GraphicsCommandList> cmdList;
+	ComPtr<ID3D12GraphicsCommandList6> cmdList; //CommandList6°æ±¾¡ª¡ªÖ§³ÖMeshShader
     std::vector<std::unique_ptr<DefaultBuffer>> constantDefault;         //
     std::vector<std::unique_ptr<UploadBuffer>> constantUpload;           //
     std::vector<UINT> constantBufferSize;
