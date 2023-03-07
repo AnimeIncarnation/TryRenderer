@@ -40,12 +40,6 @@ ID3D12PipelineState* PSOManager::GetSetPipelineState(
 		CD3DX12_PIPELINE_STATE_STREAM_SAMPLE_MASK SampleMask;
 	} Stream;
 
-	auto GetByteCode = [](const ComPtr<ID3DBlob>& shaderCode) -> D3D12_SHADER_BYTECODE {
-		if (shaderCode)
-			return CD3DX12_SHADER_BYTECODE(shaderCode.Get());
-		else
-			return CD3DX12_SHADER_BYTECODE(nullptr, 0); //shaderCode*, byteLength
-	};
 	Stream.RootSignature = rasterShader.GetRootSignature();
 	Stream.MS = { rasterShader.msShader.data, rasterShader.msShader.size };
 	//Stream.VS = {rasterShader.vsShader.data, rasterShader.vsShader.size};

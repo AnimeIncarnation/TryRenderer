@@ -104,7 +104,7 @@ void Engine::LoadPipeline()
             // Flags indicate that this descriptor heap can be bound to the pipeline 
             // and that descriptors contained in it can be referenced by a root table.
             D3D12_DESCRIPTOR_HEAP_DESC cbvHeapDesc = {};
-            cbvHeapDesc.NumDescriptors = FrameCount * 2 * 2 + 10; //FrameCount, Default/Upload代表2, 再乘以cb的种类（PerCamera, PerLight）。+10是给纹理SRV留了很多空间
+            cbvHeapDesc.NumDescriptors = FrameCount * 2 * 2; //FrameCount, Default/Upload代表2, 再乘以cb的种类（PerCamera, PerLight）
             cbvHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
             cbvHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
             ThrowIfFailed(dxDevice->Device()->CreateDescriptorHeap(&cbvHeapDesc, IID_PPV_ARGS(&m_cbvHeap)));
@@ -243,30 +243,32 @@ void Engine::LoadAssets()
         
         //model1.SetInputLayout(&rtti::Vertex::Instance(), 0, "Position4Normal3Color4");    //struct, slot = 0, layoutName
         //model1.ParseFromSpansAndUpload(cmdList.Get(), vertices, indices);
-        model1.SetInputLayout(&rtti::Vertex::Instance(), 0, "Position4Normal3Color4");    //struct, slot = 0, layoutName
-        model1.ParseFromAssimpAndUpload(cmdList.Get(), modelImporter.get());
+        model1.SetInputLayout(&rtti::Vertex2::Instance(), 0, "Position4Normal3TexCoord2");    //struct, slot = 0, layoutName
+        //model1.ParseFromAssimpAndUpload(cmdList.Get(), modelImporter.get());
+        model1.ParseFromAssimpToMeshletAndUpload(cmdList.Get(), modelImporter.get());
     }
 
     //二、给每个帧资源创建常量缓冲区描述符，并进行数据初始化（Upload + Default结构）：
+    //其实这里不用创建描述符，因为我们直接给根签名绑定的是absolute buffer location而非descriptor
     {
-        //开始创建常量缓冲区——要先创建View
-        CD3DX12_CPU_DESCRIPTOR_HANDLE cbvHandle(m_cbvHeap->GetCPUDescriptorHandleForHeapStart());
-        for (auto&& i : frameResources)
-        {        
-            for (int j = 0;j < i->constantUpload.size();j++)
-            {
-                D3D12_CONSTANT_BUFFER_VIEW_DESC cbvDesc = {};
-                cbvDesc.BufferLocation = i->constantUpload[j]->GetGPUAddress();
-                cbvDesc.SizeInBytes = i->constantBufferSize[j];
-                dxDevice->Device()->CreateConstantBufferView(&cbvDesc, cbvHandle);
-                cbvHandle.Offset(1, m_cbvDescriptorSize);
-
-                cbvDesc.BufferLocation = i->constantDefault[j]->GetGPUAddress();
-                cbvDesc.SizeInBytes = i->constantBufferSize[j];
-                dxDevice->Device()->CreateConstantBufferView(&cbvDesc, cbvHandle);
-                cbvHandle.Offset(1, m_cbvDescriptorSize);
-            }
-        }
+        ////开始创建常量缓冲区——要先创建View
+        //CD3DX12_CPU_DESCRIPTOR_HANDLE cbvHandle(m_cbvHeap->GetCPUDescriptorHandleForHeapStart());
+        //for (auto&& i : frameResources)
+        //{        
+        //    for (int j = 0;j < i->constantUpload.size();j++)
+        //    {
+        //        D3D12_CONSTANT_BUFFER_VIEW_DESC cbvDesc = {};
+        //        cbvDesc.BufferLocation = i->constantUpload[j]->GetGPUAddress();
+        //        cbvDesc.SizeInBytes = i->constantBufferSize[j];
+        //        dxDevice->Device()->CreateConstantBufferView(&cbvDesc, cbvHandle);
+        //        cbvHandle.Offset(1, m_cbvDescriptorSize);
+        //
+        //        cbvDesc.BufferLocation = i->constantDefault[j]->GetGPUAddress();
+        //        cbvDesc.SizeInBytes = i->constantBufferSize[j];
+        //        dxDevice->Device()->CreateConstantBufferView(&cbvDesc, cbvHandle);
+        //        cbvHandle.Offset(1, m_cbvDescriptorSize);
+        //    }
+        //}
 
         //CPU To Upload：Map + memcpy
         for (int i = 0;i < FrameCount;i++)
@@ -305,6 +307,22 @@ void Engine::LoadAssets()
             1,      //registerIndex
             0 });         //spaceIndex
             //1//arraySize(numDescriptors)(only for tables)
+        shaderParams.emplace_back("Meshlets", Shader::Parameter{
+            ShaderParameterType::UnorderedAccessView,
+            0,
+            0 });
+        shaderParams.emplace_back("Vertices", Shader::Parameter{
+            ShaderParameterType::UnorderedAccessView,
+            1,
+            0 });
+        shaderParams.emplace_back("VertexIndices", Shader::Parameter{
+            ShaderParameterType::UnorderedAccessView,
+            2,
+            0 });
+        shaderParams.emplace_back("PrimitiveIndices", Shader::Parameter{
+            ShaderParameterType::UnorderedAccessView,
+            3,
+            0 });
         colorShader = std::make_unique<RasterShader>(shaderParams, dxDevice.get());
     }
         
@@ -326,11 +344,11 @@ void Engine::LoadAssets()
         DXGI_FORMAT dsvFmt = DXGI_FORMAT_D32_FLOAT;
 
         m_psoManager = std::make_unique<PSOManager>();
-        if (rtti::GlobalLayout.find("Position4Normal3Color4") != rtti::GlobalLayout.end())
+        if (rtti::GlobalLayout.find("Position4Normal3TexCoord2") != rtti::GlobalLayout.end())
             m_pipelineState = m_psoManager->GetSetPipelineState( //使用PSOManager创建了PipelineState
                 dxDevice.get(),
                 *colorShader,
-                rtti::GlobalLayout["Position4Normal3Color4"],
+                rtti::GlobalLayout["Position4Normal3TexCoord2"],
                 D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE,
                 rtvFmt,
                 dsvFmt,
@@ -462,7 +480,7 @@ void Engine::PopulateCommandList(FrameResource& frameRes, UINT64 frameIndex)
     frameRes.ClearRenderTarget(rtvHandle);                                          //清除RT
     frameRes.ClearDepthStencilBuffer(dsvHandle);                                    //清除DS
     for(auto& thisModel : models)
-        frameRes.DrawMesh(dxDevice.get(), &thisModel, m_pipelineState.Get());           //设置PSO，设置IA，画
+        frameRes.DrawMeshlet(dxDevice.get(), &thisModel, m_pipelineState.Get(),colorShader.get());           //设置PSO，设置IA，画
    
 
     // Indicate that the back buffer will now be used to present.

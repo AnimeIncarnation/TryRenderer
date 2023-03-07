@@ -29,12 +29,13 @@ protected:
 		InsideParameter(Parameter const& p, UINT index): Parameter(p),rootSigIndex(index) {}
 	};
 	ComPtr<ID3D12RootSignature> rootSignature;
-	std::unordered_map<std::string, InsideParameter> parameters;
+	std::vector<std::pair<std::string, InsideParameter>> parameters;
 	std::optional<InsideParameter> GetParameter(std::string_view name) 
 	{
-		auto ite = parameters.find(std::string(name));
-		if (ite == parameters.end()) return {};
-		return ite->second;	
+		for(auto& iter : parameters)
+			if (iter.first == name) 
+				return iter.second;
+		return {};
 	}
 	
 public:

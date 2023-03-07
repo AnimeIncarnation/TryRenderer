@@ -50,7 +50,7 @@ public:
     //…Ë÷√IA£¨…Ë÷√PSO + Draw
     void DrawMesh(DXDevice* device, Model* model, ID3D12PipelineState* pipelineState);
     //void DrawMesh(DXDevice* device, D3D12_VERTEX_BUFFER_VIEW* vbView, D3D12_INDEX_BUFFER_VIEW* ibView, ID3D12PipelineState* pipelineState, UINT64 indexCount);
-
+    void DrawMeshlet(DXDevice* device, Model* model, ID3D12PipelineState* pipelineState, RasterShader* shader);
 };
 
 

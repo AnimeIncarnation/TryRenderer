@@ -19,28 +19,45 @@ struct Vertex
 	DirectX::XMFLOAT3 position;
 	DirectX::XMFLOAT3 normal;
 	DirectX::XMFLOAT2 texCoord;
+	bool operator==(const Vertex& vert2)
+	{
+		if (this->position == vert2.position && this->normal == vert2.normal && this->texCoord == vert2.texCoord)
+			return true;
+		else
+			return false;
+	}
 };
 
 struct Mesh
 {
 	std::vector<Vertex> vertices;
 	std::vector<UINT> indices;
-};
+};	
 
 struct Meshlet
 {
-	UINT vertices[64];
-	UINT indices[126];
-	UINT indexCount;
-	UINT vertexCount;
+	UINT VertCount;
+	UINT VertOffset;
+	UINT PrimitiveCount;
+	UINT PrimitiveOffset;
 };
+
+struct Mesh2	//for mesh shader
+{
+	std::vector<Vertex> vertices;
+	std::vector<UINT> indices;
+	std::vector<UINT> primitives;
+	std::vector<Meshlet> meshlets;
+};
+
+
 
 //一个模型在Assimp加载后可能会得到很多Mesh，比如人的头，身体，手等。不进行合并而逐一Draw就是现在默认管线采取的办法
 //然而，ModelImporter这里可以还支持使用Meshlets，即采用Mesh Shader代替其他所有
 class ModelImporter
 {
 	std::vector<Mesh> model;
-	std::vector<Meshlet> meshlets;
+	std::vector<Mesh2> model2;
 	std::string directory;
 	Assimp::Importer importer;
 	DXDevice* dxDevice;
@@ -68,12 +85,14 @@ public:
 		for (UINT i = 0; i < node->mNumMeshes; i++)
 		{
 			aiMesh* mesh = scene->mMeshes[node->mMeshes[i]];
-			ProcessModel(dxdevice, i, mesh, scene);
+			//ProcessModel(dxdevice, i, mesh, scene);
+			ProcessModelMeshlet(dxdevice, i, mesh, scene);
 		}
 		// 接下来对它的子节点重复这一过程
 		for (UINT i = 0; i < node->mNumChildren; i++)
 		{
 			ProcessNode(dxdevice, node->mChildren[i], scene);
+			//std::cout << "第"<<i<<"个Mesh完成拆分，共有"
 		}
 	}
 
@@ -82,7 +101,8 @@ public:
 		Mesh& currMesh = model.emplace_back();
 		currMesh.vertices.reserve(mesh->mNumVertices);
 		currMesh.indices.reserve(mesh->mNumFaces * 3);
-
+		UINT vertIndex = 0;
+		bool ChongFu = false;
 		// 复制顶点位置、法线和纹理坐标
 		for (UINT i = 0; i < mesh->mNumVertices; i++)
 		{
@@ -94,29 +114,260 @@ public:
 				vertex.texCoord = { mesh->mTextureCoords[0][i].x, mesh->mTextureCoords[0][i].y };
 			else
 				vertex.texCoord = { 0.f,0.f };
-			currMesh.vertices.emplace_back(vertex);
+
+			//判断是否重复，并按逻辑插入顶点和顶点索引
+			for (UINT iter = 0; iter<currMesh.vertices.size();iter++)
+			{
+				if (currMesh.vertices[iter] == vertex)
+				{
+					ChongFu = true;
+					currMesh.indices.emplace_back(iter);
+					break;
+				}
+			}
+			//若不重复，插入
+			if (!ChongFu)
+			{
+				currMesh.vertices.emplace_back(vertex);
+				currMesh.indices.emplace_back(vertIndex++);	   //实际上vertIndex等于currMesh.vertices.size()-1
+			}
+			ChongFu = false;
+		}
+		//// 每个mesh有一个材质
+		//// 加载纹理，Assimp不提供加载纹理的功能，需要额外用stb_image来加载
+		//if (mesh->mMaterialIndex >= 0)
+		//{
+		//	//aiMaterial* material = scene->mMaterials[mesh->mMaterialIndex];
+		//	////每个材质对象的内部对每种纹理类型都存储了一个纹理位置数组。不同的纹理类型都以aiTextureType_为前缀
+		//	//loadMaterialTextures(dxdevice, material, aiTextureType_DIFFUSE, "texture_diffuse");
+		//	//loadMaterialTextures(dxdevice, material, aiTextureType_SPECULAR, "texture_specular");
+		//}
+	}
+
+	void ProcessModelMeshlet(DXDevice* dxdevice, UINT index, aiMesh* mesh, const aiScene* scene)
+	{
+		Mesh2& currMesh = model2.emplace_back();
+		currMesh.vertices.reserve(mesh->mNumVertices);
+		currMesh.indices.reserve(mesh->mNumFaces * 3);
+		UINT vertIndex = 0;
+		bool ChongFu = false;
+		// 复制顶点位置、法线和纹理坐标
+		for (UINT i = 0; i < mesh->mNumVertices; i++)
+		{
+			Vertex vertex;
+			vertex.position = { mesh->mVertices[i].x, mesh->mVertices[i].y, mesh->mVertices[i].z };
+			vertex.normal = { mesh->mNormals[i].x, mesh->mNormals[i].y, mesh->mNormals[i].z };
+			// 网格是否有纹理坐标？
+			if (mesh->mTextureCoords[0])
+				vertex.texCoord = { mesh->mTextureCoords[0][i].x, mesh->mTextureCoords[0][i].y };
+			else
+				vertex.texCoord = { 0.f,0.f };
+
+			//1. 处理顶点数组和索引数组。
+			//判断Vertex是否重复，并按逻辑插入顶点和顶点索引
+			for (UINT iter = 0; iter < vertIndex;iter++)
+			{
+				if (currMesh.vertices[iter] == vertex)
+				{
+					ChongFu = true;
+					currMesh.indices.emplace_back(iter);
+					break;
+				}
+			}
+			//若不重复，插入
+			if (!ChongFu)
+			{
+				currMesh.vertices.emplace_back(vertex);
+				currMesh.indices.emplace_back(vertIndex++);	   //实际上vertIndex等于currMesh.vertices.size()-1
+			}
+			ChongFu = false;
 		}
 
-		// 处理索引
-		for (UINT i = 0; i < mesh->mNumFaces; i++)
+		//{
+		//	std::cout << "最初的index buffer数量为："<< currMesh.indices.size() << std::endl;
+		//}
+
+		//2. 处理Meshlet
+		std::vector<UINT> newIndices;
+		std::vector<UINT> primitiveIndiceBig;
+		UINT indiceIndex = 0;
+
+		//先更新一下vertex indice和primitive indice（暂且每个primitive indice用一个UINT来装)
+		for (UINT i = 0;i < currMesh.indices.size(); i++)
 		{
-			aiFace face = mesh->mFaces[i];
-			for (unsigned int j = 0; j < face.mNumIndices; j++)
-				currMesh.indices.emplace_back(face.mIndices[j]);
+			UINT presentIndice = currMesh.indices[i];
+			//判断Indice是否重复
+			for (UINT iter = 0; iter < indiceIndex;iter++)
+			{
+				if (newIndices[iter] == presentIndice)
+				{
+					ChongFu = true;
+					primitiveIndiceBig.emplace_back(iter);		//primitiveIndiceBig中放入的是vertexIndice的下标
+					break;
+				}
+			}
+			//若不重复，插入
+			if (!ChongFu)
+			{
+				newIndices.emplace_back(presentIndice);
+				primitiveIndiceBig.emplace_back(indiceIndex++);	   //实际上vertIndex等于currMesh.vertices.size()-1
+			}
+			ChongFu = false;
+		}
+		//{
+		//	std::cout << "更改前的PrimitiveIndice为：" << std::endl;
+		//	for (auto x : primitiveIndiceBig)
+		//	{
+		//		std::cout << x << " ";
+		//	}
+		//}
+
+		//此时vertex indice已去重（但是这个vertex indice并不是我们要的，我们要的是下面的vertexInMeshlet），
+		//也生成好了primitive indice（这个primitive indice也不是我们想要的，还得修改）。接着生成Meshlet
+		//vertex indice走了64个或者primitive indice走了126*3个就停下来
+		UINT vertexCount = 0;
+		UINT vertexOffset = 0;
+		UINT primitiveCount = 0;
+		UINT primitiveOffset = 0;
+		bool nextMeshlet = false;
+		UINT NewVertInPrim = 0;
+		std::vector<UINT> vertexInMeshlet;	//vertex indices
+		UINT originPrimIndic[3];
+		//std::cout << std::endl << "更改后的PrimitiveIndice：" << std::endl;
+		for (UINT i = 0;i < primitiveIndiceBig.size();i+=3)
+		{
+			nextMeshlet = false;
+			NewVertInPrim = 0;
+			for (UINT j = 0;j < 3;j++)
+			{
+				originPrimIndic[j] = primitiveIndiceBig[i + j];
+				// Primitive Indice中如果指向一个在该Meshlet中没出现过的vertex，则vertexcount++，并放入vertexInMeshlet
+				for (UINT k = vertexOffset; k < vertexInMeshlet.size();k++)
+				{
+					//如果该vertex已经出现过，标记一下
+					if (vertexInMeshlet[k] == newIndices[primitiveIndiceBig[i + j]])
+					{
+						primitiveIndiceBig[i + j] = k;	//
+						//std::cout << primitiveIndiceBig[i + j] << " ";
+						ChongFu = true;
+						break;
+					}
+				}
+				// 若没出现过，插入该vertex，vertexCount加一
+				if (!ChongFu)
+				{
+					vertexCount++;
+					NewVertInPrim++;
+					//如果加上这个顶点变成65个顶点了，那么去掉这个三角图元，直接生成Meshlet，并重新开始处理下一个Meshlet
+					if (vertexCount == 65)
+					{
+						// 生成Meshlet
+						Meshlet meshlet;
+						// 如果这个图元中有一个新顶点，VertCount改为64。如果有两个则改为63，三个则62
+						meshlet.VertCount = 65 - NewVertInPrim;
+						// 如果这个图元中有一个新顶点，vertexInMeshlet不用改。两个则去掉最后一个元素，三个则去掉最后两个元素
+						vertexInMeshlet.resize(vertexInMeshlet.size() - NewVertInPrim + 1);
+						// 同时，primitiveIndiceBig中对于该图元来说已经修改过的内容要改回去
+						for (UINT k = 0; k <= j;k++)
+							primitiveIndiceBig[i + k] = originPrimIndic[k];
+						meshlet.VertOffset = vertexOffset;
+						meshlet.PrimitiveCount = primitiveCount;
+						meshlet.PrimitiveOffset = primitiveOffset;
+						currMesh.meshlets.emplace_back(meshlet);
+
+						//{
+						//	std::cout << "Meshlet" << currMesh.meshlets.size() - 1 << "的信息为：" << std::endl;
+						//	std::cout << "VertCount：" << meshlet.VertCount << "，VertOffset：" << meshlet.VertOffset <<
+						//		"，PrimitiveCount：" << meshlet.PrimitiveCount << "，PrimitiveOffset：" << meshlet.PrimitiveOffset << std::endl << std::endl;
+						//}
+						//if (currMesh.meshlets.size() - 1 == 85)
+						//	std::cout << "在这停顿" << std::endl;
+						//if (currMesh.meshlets.size() - 1 == 48)
+						//	std::cout << "在这停顿" << std::endl;
+						//搞下一个Meshlet
+						i -= 3;
+						nextMeshlet = true;
+						vertexCount = 0;
+						primitiveCount = 0;
+						primitiveOffset += meshlet.PrimitiveCount;
+						vertexOffset += meshlet.VertCount;
+						break;
+					}
+					UINT emplaceInd = newIndices[primitiveIndiceBig[i + j]];
+					vertexInMeshlet.emplace_back(emplaceInd);
+					primitiveIndiceBig[i + j] = vertexInMeshlet.size() - 1;	//
+					//std::cout << primitiveIndiceBig[i + j] << " ";
+				}
+				ChongFu = false;
+			}
+			if(!nextMeshlet)
+				primitiveCount++;
+			if (primitiveCount == 126 ||  i == primitiveIndiceBig.size()-3)
+			{
+				//生成Meshlet
+				Meshlet meshlet;
+				meshlet.VertCount = vertexCount;
+				meshlet.VertOffset = vertexOffset;
+				meshlet.PrimitiveCount = primitiveCount;
+				meshlet.PrimitiveOffset = primitiveOffset;
+				currMesh.meshlets.emplace_back(meshlet);
+
+				//{
+				//	std::cout << "Meshlet"<<currMesh.meshlets.size()-1<<"的信息为："<<std::endl;
+				//	std::cout << "VertCount：" << meshlet.VertCount << "，VertOffset：" << meshlet.VertOffset <<
+				//		"，PrimitiveCount：" << meshlet.PrimitiveCount << "，PrimitiveOffset：" << meshlet.PrimitiveOffset << std::endl << std::endl;
+				//}
+				//if (currMesh.meshlets.size() - 1 == 85)
+				//	std::cout << "在这停顿" << std::endl;
+				//if (currMesh.meshlets.size() - 1 == 48)
+				//	std::cout << "在这停顿" << std::endl;
+				//搞下一个Meshlet
+				vertexCount = 0;
+				primitiveCount = 0;
+				primitiveOffset += meshlet.PrimitiveCount;
+				vertexOffset += meshlet.VertCount;
+			}
+		}
+		//把真·indice传进入
+		currMesh.indices = vertexInMeshlet;
+
+		//最后一步设置primitives：从uint3到uint，内存布局为2+10(2)+10(1)+10(0)。但要先注意primitive的值要先减去vertex offset
+		for (auto& meshlet : currMesh.meshlets)
+		{
+			//if (meshlet.VertCount < 64)
+			//	std::cout << "小于64" << std::endl;
+			for (UINT primiCount = 0;primiCount < meshlet.PrimitiveCount;primiCount++)
+			{
+				primitiveIndiceBig[meshlet.PrimitiveOffset * 3 + primiCount * 3] -= meshlet.VertOffset;
+				primitiveIndiceBig[meshlet.PrimitiveOffset * 3 + primiCount * 3 + 1] -= meshlet.VertOffset;
+				primitiveIndiceBig[meshlet.PrimitiveOffset * 3 + primiCount * 3 + 2] -= meshlet.VertOffset;
+			}
+		}
+		currMesh.primitives.resize(primitiveIndiceBig.size()/3);
+		for (UINT i = 0;i < primitiveIndiceBig.size();i += 3)
+		{
+			currMesh.primitives[i/3] += primitiveIndiceBig[i];
+			currMesh.primitives[i/3] += primitiveIndiceBig[i+1]<<10;
+			currMesh.primitives[i/3] += primitiveIndiceBig[i+2]<<20;
 		}
 
-		// 每个mesh有一个材质
-		// 加载纹理，Assimp不提供加载纹理的功能，需要额外用stb_image来加载
-		if (mesh->mMaterialIndex >= 0)
+		//输出一下VertIndices
 		{
-			//aiMaterial* material = scene->mMaterials[mesh->mMaterialIndex];
-			////每个材质对象的内部对每种纹理类型都存储了一个纹理位置数组。不同的纹理类型都以aiTextureType_为前缀
-			//loadMaterialTextures(dxdevice, material, aiTextureType_DIFFUSE, "texture_diffuse");
-			//loadMaterialTextures(dxdevice, material, aiTextureType_SPECULAR, "texture_specular");
+			//std::cout << "该Mesh的顶点数为：" << currMesh.vertices.size() << std::endl;
+			//std::cout << "最终的primitiveIndices数量为：" <<currMesh.primitives.size() <<  std::endl; 
+			//std::cout << "最终的VertexIndices为：" << std::endl; 
+			//for (UINT ind = 0;ind < currMesh.indices.size();ind++)
+			//{
+			//	std::cout << currMesh.indices[ind] << " ";
+			//}
+			//std::cout << std::endl << "finish" << std::endl;
 		}
 	}
 
+
+
 	std::span<const Mesh> GetMeshes()const { return model; }
+	std::span<const Mesh2> GetMeshesMeshlet()const { return model2; }
 };
 
 //	//仅存放

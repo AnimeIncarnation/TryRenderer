@@ -75,11 +75,30 @@ void FrameResource::DrawMesh(DXDevice* device, Model* model, ID3D12PipelineState
 	cmdList->SetPipelineState(pipelineState);
 	for (int i = 0; i < model->VertexBuffers().size();i++)
 	{
-		//cmdList->IASetVertexBuffers(0, 1, &model->GetVertexBufferView()[i]);
-		//cmdList->IASetIndexBuffer(&model->GetIndexBufferView()[i]);
-		//cmdList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);      //更细化的图元拓扑：列表/条带......
-		//cmdList->DrawIndexedInstanced(model->GetIndiceCount()[i], 1, 0, 0, 0);
-		cmdList->DispatchMesh(1, 1, 1);
+		cmdList->IASetVertexBuffers(0, 1, &model->GetVertexBufferView()[i]);
+		cmdList->IASetIndexBuffer(&model->GetIndexBufferView()[i]);
+		cmdList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);      //更细化的图元拓扑：列表/条带......
+		cmdList->DrawIndexedInstanced(model->GetIndiceCount()[i], 1, 0, 0, 0);
+		//cmdList->DispatchMesh(1, 1, 1);
+	}
+}
+
+void FrameResource::DrawMeshlet(DXDevice* device, Model* model, ID3D12PipelineState* pipelineState, RasterShader* shader)
+{
+	cmdList->SetPipelineState(pipelineState);
+	//每个Mesh绑定自己的UAR
+	for (int i = 0; i < model->VertexBuffers().size();i++)
+	{
+		D3D12_GPU_VIRTUAL_ADDRESS meshletAddress = model->MeshletBuffers()[i].GetGPUAddress();
+		D3D12_GPU_VIRTUAL_ADDRESS vertexAddress = model->VertexBuffers()[i].GetGPUAddress();
+		D3D12_GPU_VIRTUAL_ADDRESS vertexIndiceAddress = model->VertexIndiceBuffers()[i].GetGPUAddress();
+		D3D12_GPU_VIRTUAL_ADDRESS primitiveIndiceAddress = model->PrimitiveIndiceBuffers()[i].GetGPUAddress();
+		shader->SetParameter(cmdList.Get(), "Meshlets", meshletAddress);
+		shader->SetParameter(cmdList.Get(), "Vertices", vertexAddress);
+		shader->SetParameter(cmdList.Get(), "VertexIndices", vertexIndiceAddress);
+		shader->SetParameter(cmdList.Get(), "PrimitiveIndices", primitiveIndiceAddress);
+		UINT groupSize = model->GetMeshletCount()[i];
+		cmdList->DispatchMesh(groupSize, 1, 1);
 	}
 }
 

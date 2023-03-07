@@ -6,7 +6,7 @@ Shader::Shader(std::span<std::pair<std::string, Parameter>const> params, DXDevic
     for (int i = 0;i < params.size();i++)
     {
         InsideParameter iParam = InsideParameter((params.begin() + i)->second,i);
-        parameters.insert_or_assign((params.begin() + i)->first, iParam);
+        parameters.emplace_back((params.begin() + i)->first, iParam);
     }
 
     //2. 建立根参数表
@@ -57,6 +57,7 @@ Shader::Shader(std::span<std::pair<std::string, Parameter>const> params, DXDevic
         featureData.HighestVersion = D3D_ROOT_SIGNATURE_VERSION_1_0;
     ThrowIfFailed(D3DX12SerializeVersionedRootSignature(&rootSignatureDesc, featureData.HighestVersion, &signature, &error));
     ThrowIfFailed(device->CreateRootSignature(0, signature->GetBufferPointer(), signature->GetBufferSize(), IID_PPV_ARGS(&rootSignature)));
+    //ThrowIfFailed(device->CreateRootSignature(0, rasterShader.msShader.data, signature->GetBufferSize(), IID_PPV_ARGS(&rootSignature)));
 }
 
 Shader::Shader(std::span<std::pair<std::string, Parameter>const>params, ComPtr<ID3D12RootSignature>&& sig):rootSignature(std::move(sig))
@@ -65,7 +66,7 @@ Shader::Shader(std::span<std::pair<std::string, Parameter>const>params, ComPtr<I
     for (int i = 0;i < params.size();i++)
     {
         InsideParameter iParam = InsideParameter((params.begin() + i)->second, i);
-        parameters.insert_or_assign((params.begin() + i)->first, iParam);
+        parameters.emplace_back((params.begin() + i)->first, iParam);
     }
 }
 
