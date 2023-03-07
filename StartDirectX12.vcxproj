@@ -188,6 +188,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Component\Camera.h" />
+    <ClInclude Include="Component\InstanceController.h" />
     <ClInclude Include="RenderBase\ModelImporter.h" />
     <ClInclude Include="Component\ShaderParameterType.h" />
     <ClInclude Include="DXMath\Common.h" />

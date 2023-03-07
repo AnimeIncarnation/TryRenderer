@@ -237,9 +237,7 @@ void Engine::LoadAssets()
 
         ////parse模型
         models.emplace_back(dxDevice.get());
-        models.emplace_back(dxDevice.get());
         Model& model1 = models[0];
-        Model& model2 = models[1];
         
         //model1.SetInputLayout(&rtti::Vertex::Instance(), 0, "Position4Normal3Color4");    //struct, slot = 0, layoutName
         //model1.ParseFromSpansAndUpload(cmdList.Get(), vertices, indices);
@@ -247,6 +245,12 @@ void Engine::LoadAssets()
         //model1.ParseFromAssimpAndUpload(cmdList.Get(), modelImporter.get());
         model1.ParseFromAssimpToMeshletAndUpload(cmdList.Get(), modelImporter.get());
     }
+
+    //1.5：创建Instance数据
+    instanceController = std::make_unique<InstanceController>(dxDevice.get(),
+        8,  //row
+        8);    //radius
+    instanceController->GeneratePerInstanceDataAndUpload(cmdList.Get());
 
     //二、给每个帧资源创建常量缓冲区描述符，并进行数据初始化（Upload + Default结构）：
     //其实这里不用创建描述符，因为我们直接给根签名绑定的是absolute buffer location而非descriptor
@@ -307,6 +311,10 @@ void Engine::LoadAssets()
             1,      //registerIndex
             0 });         //spaceIndex
             //1//arraySize(numDescriptors)(only for tables)
+        shaderParams.emplace_back("DrawParams", Shader::Parameter{
+            ShaderParameterType::ConstantBufferView,
+            2,
+            0 });
         shaderParams.emplace_back("Meshlets", Shader::Parameter{
             ShaderParameterType::UnorderedAccessView,
             0,
@@ -322,6 +330,10 @@ void Engine::LoadAssets()
         shaderParams.emplace_back("PrimitiveIndices", Shader::Parameter{
             ShaderParameterType::UnorderedAccessView,
             3,
+            0 });
+        shaderParams.emplace_back("InstanceData", Shader::Parameter{
+            ShaderParameterType::ShaderResourceView,
+            0,
             0 });
         colorShader = std::make_unique<RasterShader>(shaderParams, dxDevice.get());
     }
@@ -470,6 +482,8 @@ void Engine::PopulateCommandList(FrameResource& frameRes, UINT64 frameIndex)
     D3D12_GPU_VIRTUAL_ADDRESS lightCbAddress = frameRes.constantDefault[1]->GetGPUAddress();
     colorShader->SetParameter(cmdList, "PerCameraConstant", cameraCbAddress);
     colorShader->SetParameter(cmdList, "PerLightConstant", lightCbAddress);
+    colorShader->SetParameter(cmdList, "DrawParams", instanceController->GetDrawParamsGPUAddress());
+    colorShader->SetParameter(cmdList, "InstanceData", instanceController->GetInstanceDataGPUAddress());
 
     // Indicate that the back buffer will be used as a render target.
     cmdList->ResourceBarrier(1, get_rvalue_ptr(CD3DX12_RESOURCE_BARRIER::Transition(m_renderTargets[frameIndex].Get(), D3D12_RESOURCE_STATE_PRESENT, D3D12_RESOURCE_STATE_RENDER_TARGET)));
@@ -480,7 +494,8 @@ void Engine::PopulateCommandList(FrameResource& frameRes, UINT64 frameIndex)
     frameRes.ClearRenderTarget(rtvHandle);                                          //清除RT
     frameRes.ClearDepthStencilBuffer(dsvHandle);                                    //清除DS
     for(auto& thisModel : models)
-        frameRes.DrawMeshlet(dxDevice.get(), &thisModel, m_pipelineState.Get(),colorShader.get());           //设置PSO，设置IA，画
+        frameRes.DrawMeshlet(dxDevice.get(), &thisModel, m_pipelineState.Get(),
+            colorShader.get(),instanceController->GetInstanceCount());           //设置PSO，设置IA，画
    
 
     // Indicate that the back buffer will now be used to present.

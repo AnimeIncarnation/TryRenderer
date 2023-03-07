@@ -5,6 +5,8 @@
 #include "../DXMath/MathHelper.h"
 
 
+
+
 //CBuffer要256B对齐，同时必须按照HLSL的封装规则以“填充”变量的方式来定义C++结构体，才能正确memcpy
 //即，每两个成员之间的距离必须是4的整倍数，这是因为cbuffer会把数据打包为4D向量
 struct PerLightConstant
@@ -75,6 +77,7 @@ struct SuperCameraConstant
 };
 static_assert((sizeof(SuperCameraConstant) % 256) == 0, "Constant Buffer size must be 256-byte aligned");
 static constexpr UINT SuperCameraConstantBufferSize = sizeof(SuperCameraConstant);    // CB size is required to be 256-byte aligned.
+
 
 
 #endif

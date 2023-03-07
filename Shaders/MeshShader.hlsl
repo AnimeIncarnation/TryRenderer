@@ -40,12 +40,25 @@ struct Meshlet
     uint PrimitiveOffset;
 };
 
+struct PerInstanceData
+{
+    float4x4 modelMatrix;
+};
+
+struct DrawParams
+{
+    uint InstanceCount;
+    uint InstanceOffset;
+};
+
 ConstantBuffer<PerCameraConstants> perCameraConstants : register(b0);
 ConstantBuffer<PerLightConstant> perLightConstants: register(b1);
+ConstantBuffer<DrawParams> drawParams          : register(b2);
 RWStructuredBuffer<Meshlet> Meshlets          : register(u0);
 RWStructuredBuffer<Vertex>  Vertices          : register(u1);
 RWStructuredBuffer<uint>    VertexIndices     : register(u2);
 RWStructuredBuffer<uint>    PrimitiveIndices  : register(u3);
+StructuredBuffer<PerInstanceData>  InstanceData : register(t0);
 
 
 /////
@@ -108,18 +121,28 @@ void main(
     out indices uint3 outIndices[126]
 )
 {
-    Meshlet m = Meshlets[groupId];
-    SetMeshOutputCounts(m.VertCount, m.PrimitiveCount);
+    //Goup数等于InstanceCount * Meshlet的数量
+    uint meshletIndex = groupId / drawParams.InstanceCount;
+    uint startInstance = groupId % drawParams.InstanceCount;
+    uint instanceCount = 1;
+
+
+    Meshlet m = Meshlets[meshletIndex];
+    uint vertCount = m.VertCount * instanceCount;
+    uint primCount = m.PrimitiveCount * instanceCount;
+    SetMeshOutputCounts(vertCount, primCount);
     
+
     if (groupThreadId < m.VertCount)
     {
         uint vertexIndex = VertexIndices[m.VertOffset + groupThreadId];
             
         Vertex vin = Vertices[vertexIndex];
         VertexOut vout;
-        vout.position = mul(perCameraConstants.vpMatrix, vin.position);
+        vout.position =  mul(InstanceData[startInstance].modelMatrix, vin.position);
+        vout.position = mul(perCameraConstants.vpMatrix, vout.position);
         vout.normal = vin.normal;
-        vout.color = float4(groupThreadId*0.005+groupId*0.015, groupThreadId * 0.01 + groupId * 0.01, groupThreadId * 0.015 + groupId * 0.005,1);
+        vout.color = float4(0,0,0,1);
         outVerts[groupThreadId] = vout;
     }
     

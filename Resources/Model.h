@@ -13,8 +13,9 @@
 
 
 
-class Model : public Resource 
+class Model
 {
+	DXDevice* dxdevice;
 	const rtti::ElementStruct * vertexStruct;		//该model所使用的layout对应的vertex结构体实例
 	std::pair<std::string, std::vector<D3D12_INPUT_ELEMENT_DESC>> layout;	//Mesh要存储根据顶点元信息parse出的layout
 	UINT vertexLayoutSlot;

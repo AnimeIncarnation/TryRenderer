@@ -12,7 +12,7 @@
 //    UINT PrimitiveOffset;
 //};
 
-Model::Model(DXDevice* device):Resource(device) {}
+Model::Model(DXDevice* device):dxdevice(device) {}
 
 void Model::SetInputLayout(const rtti::ElementStruct* vbStruct, UINT slot, const std::string& name)
 {

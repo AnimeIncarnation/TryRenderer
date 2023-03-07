@@ -83,7 +83,7 @@ void FrameResource::DrawMesh(DXDevice* device, Model* model, ID3D12PipelineState
 	}
 }
 
-void FrameResource::DrawMeshlet(DXDevice* device, Model* model, ID3D12PipelineState* pipelineState, RasterShader* shader)
+void FrameResource::DrawMeshlet(DXDevice* device, Model* model, ID3D12PipelineState* pipelineState, RasterShader* shader,UINT instanceCount)
 {
 	cmdList->SetPipelineState(pipelineState);
 	//每个Mesh绑定自己的UAR
@@ -97,8 +97,8 @@ void FrameResource::DrawMeshlet(DXDevice* device, Model* model, ID3D12PipelineSt
 		shader->SetParameter(cmdList.Get(), "Vertices", vertexAddress);
 		shader->SetParameter(cmdList.Get(), "VertexIndices", vertexIndiceAddress);
 		shader->SetParameter(cmdList.Get(), "PrimitiveIndices", primitiveIndiceAddress);
-		UINT groupSize = model->GetMeshletCount()[i];
-		cmdList->DispatchMesh(groupSize, 1, 1);
+		UINT meshletCountInThisMesh = model->GetMeshletCount()[i];
+		cmdList->DispatchMesh(meshletCountInThisMesh * instanceCount, 1, 1);
 	}
 }
 

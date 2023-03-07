@@ -26,6 +26,7 @@
 #include "Component/Constants.h"
 #include "Component/Light.h"
 #include "RenderBase/ModelImporter.h"
+#include "Component/InstanceController.h"
 
 using namespace DirectX;
 
@@ -73,6 +74,7 @@ private:
     // App resources.
     PerCameraConstant cameraConstantData;
     PerLightConstant lightConstantData;
+    std::unique_ptr<InstanceController> instanceController;
     std::unique_ptr<ModelImporter> modelImporter;
     std::vector<Light> sceneLights;
     std::vector<Model> models;

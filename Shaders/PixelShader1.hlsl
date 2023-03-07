@@ -41,8 +41,8 @@ struct PSInput
 
 float4 main(PSInput input) : SV_TARGET
 {
-    //float3 backDir = -perLightConstants.direction;
-    //float res = max(0, dot(input.normal, backDir));
-    //input.color = float4(res, res, res, 1);
+    float3 backDir = -perLightConstants.direction;
+    float res = max(0, dot(input.normal, backDir));
+    input.color = float4(res, res, res, 1);
     return input.color;
 }
