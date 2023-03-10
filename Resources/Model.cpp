@@ -117,8 +117,11 @@ void Model::ParseFromAssimpToMeshletAndUpload(ID3D12GraphicsCommandList* cmdList
         cmdList->CopyBufferRegion(indexDefault, 0, vertexIndicePerMeshUpload[i].GetResource(), 0, vertexIndicePerMeshUpload[i].GetSize());
         cmdList->CopyBufferRegion(primitiveDefault, 0, primitiveIndicePerMeshUpload[i].GetResource(), 0, primitiveIndicePerMeshUpload[i].GetSize());
         cmdList->CopyBufferRegion(meshletDefault, 0, meshletsPerMeshUpload[i].GetResource(), 0, meshletsPerMeshUpload[i].GetSize());
+    
+        //5. 获得MeshInfo Address
+        meshInfoAddress.emplace_back(presentMesh.GetMeshInfoGPUAddress());
     }
-    //5. 不用创建UAV视图，因为我们直接绑定这些资源的绝对地址，不用view来间接处理
+    //6. 不用创建UAV视图，因为我们直接绑定这些资源的绝对地址，不用view来间接处理
     
 }
 

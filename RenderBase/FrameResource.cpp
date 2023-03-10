@@ -89,16 +89,24 @@ void FrameResource::DrawMeshlet(DXDevice* device, Model* model, ID3D12PipelineSt
 	//每个Mesh绑定自己的UAR
 	for (int i = 0; i < model->VertexBuffers().size();i++)
 	{
+		D3D12_GPU_VIRTUAL_ADDRESS meshInfo = model->GetMeshletInfoAddress(i);
 		D3D12_GPU_VIRTUAL_ADDRESS meshletAddress = model->MeshletBuffers()[i].GetGPUAddress();
 		D3D12_GPU_VIRTUAL_ADDRESS vertexAddress = model->VertexBuffers()[i].GetGPUAddress();
 		D3D12_GPU_VIRTUAL_ADDRESS vertexIndiceAddress = model->VertexIndiceBuffers()[i].GetGPUAddress();
 		D3D12_GPU_VIRTUAL_ADDRESS primitiveIndiceAddress = model->PrimitiveIndiceBuffers()[i].GetGPUAddress();
+
+		shader->SetParameter(cmdList.Get(), "MeshInfo", meshInfo);
 		shader->SetParameter(cmdList.Get(), "Meshlets", meshletAddress);
 		shader->SetParameter(cmdList.Get(), "Vertices", vertexAddress);
 		shader->SetParameter(cmdList.Get(), "VertexIndices", vertexIndiceAddress);
 		shader->SetParameter(cmdList.Get(), "PrimitiveIndices", primitiveIndiceAddress);
 		UINT meshletCountInThisMesh = model->GetMeshletCount()[i];
-		cmdList->DispatchMesh(meshletCountInThisMesh * instanceCount, 1, 1);
+		
+		//没有AS的时候，DispatchMesh数应等于meshletCountInThisMesh * InstanceCount
+		//有AS的时候，如下
+		UINT ASThreadCountInOneGroup = 32;
+		UINT ASGroups = (meshletCountInThisMesh + ASThreadCountInOneGroup - 1) / ASThreadCountInOneGroup;
+		cmdList->DispatchMesh(ASGroups, 1, 1);
 	}
 }
 

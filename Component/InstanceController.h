@@ -21,8 +21,8 @@ class InstanceController
 	std::vector<PerObjectInstanceData> perInstanceData;
 	std::unique_ptr<UploadBuffer> instanceUpload ;
 	std::unique_ptr<DefaultBuffer>instanceDefault;
-	std::unique_ptr<UploadBuffer> drawParamUpload ;
-	std::unique_ptr<DefaultBuffer>drawParamDefault;
+	std::unique_ptr<UploadBuffer> instanceInfoUpload ;
+	std::unique_ptr<DefaultBuffer>instanceInfoDefault;
 	
 public:
 	InstanceController(DXDevice* device, UINT row, float radius) :
@@ -51,14 +51,14 @@ public:
 		instanceDefault= std::make_unique<DefaultBuffer>(dxdevice, instanceDataSize);
 		cmdList->CopyBufferRegion(instanceDefault.get()->GetResource(), 0, instanceUpload.get()->GetResource(), 0, instanceDataSize);
 
-		drawParamUpload = std::make_unique<UploadBuffer>(dxdevice, sizeof(UINT) * 2);
+		instanceInfoUpload = std::make_unique<UploadBuffer>(dxdevice, sizeof(UINT) * 2);
 		UINT arr[2] = { instanceCount, 0 };
-		drawParamUpload->CopyData(0, { reinterpret_cast<const byte*>(arr) ,sizeof(UINT) * 2 });
-		drawParamDefault = std::make_unique<DefaultBuffer>(dxdevice, sizeof(UINT) * 2);
-		cmdList->CopyBufferRegion(drawParamDefault.get()->GetResource(), 0, drawParamUpload.get()->GetResource(), 0, sizeof(UINT) * 2);
+		instanceInfoUpload->CopyData(0, { reinterpret_cast<const byte*>(arr) ,sizeof(UINT) * 2 });
+		instanceInfoDefault = std::make_unique<DefaultBuffer>(dxdevice, sizeof(UINT) * 2);
+		cmdList->CopyBufferRegion(instanceInfoDefault.get()->GetResource(), 0, instanceInfoUpload.get()->GetResource(), 0, sizeof(UINT) * 2);
 	}
 
-	D3D12_GPU_VIRTUAL_ADDRESS GetDrawParamsGPUAddress() const { return drawParamDefault->GetGPUAddress(); }
+	D3D12_GPU_VIRTUAL_ADDRESS GetInstanceInfoGPUAddress() const { return instanceInfoDefault->GetGPUAddress(); }
 	D3D12_GPU_VIRTUAL_ADDRESS GetInstanceDataGPUAddress() const
 	{
 		return instanceDefault->GetGPUAddress();

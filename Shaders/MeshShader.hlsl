@@ -40,20 +40,31 @@ struct Meshlet
     uint PrimitiveOffset;
 };
 
+struct MeshInfo
+{
+    uint MeshletCount;
+};
+
 struct PerInstanceData
 {
     float4x4 modelMatrix;
 };
 
-struct DrawParams
+struct InstanceInfo
 {
     uint InstanceCount;
     uint InstanceOffset;
 };
 
-ConstantBuffer<PerCameraConstants> perCameraConstants : register(b0);
-ConstantBuffer<PerLightConstant> perLightConstants: register(b1);
-ConstantBuffer<DrawParams> drawParams          : register(b2);
+struct Payload
+{
+    uint MeshletIndices[32];
+};
+
+ConstantBuffer<PerCameraConstants> perCameraConstants   : register(b0);
+ConstantBuffer<PerLightConstant> perLightConstants      : register(b1);
+ConstantBuffer<InstanceInfo> instanceInfo               : register(b2);
+ConstantBuffer<MeshInfo> MeshInfo                       : register(b3);
 RWStructuredBuffer<Meshlet> Meshlets          : register(u0);
 RWStructuredBuffer<Vertex>  Vertices          : register(u1);
 RWStructuredBuffer<uint>    VertexIndices     : register(u2);
@@ -117,15 +128,26 @@ StructuredBuffer<PerInstanceData>  InstanceData : register(t0);
 void main(
     uint groupThreadId : SV_GroupThreadID,
     uint groupId : SV_GroupID,
+    in payload Payload payload,
     out vertices VertexOut outVerts[64],
     out indices uint3 outIndices[126]
 )
-{
-    //Goup数等于InstanceCount * Meshlet的数量
-    uint meshletIndex = groupId / drawParams.InstanceCount;
-    uint startInstance = groupId % drawParams.InstanceCount;
-    uint instanceCount = 1;
+{   //1. 无AS，有Instance时
+    //Goup数等于InstanceCount * MeshletCount
+    //DispatchMesh只是开了这么多线程组，Group(X)处理Meshlet(Y)Instance(Z)随便安排
+    //此处传进来了InstanceCount所以这样设置数据。如果传进来的是MeshletCount那么除法和取模就颠倒一下
+    //uint meshletIndex = groupId / InstanceInfo.InstanceCount;
+    //uint startInstance = groupId % InstanceInfo.InstanceCount;
 
+    //2. 有AS，无Instance时
+    //uint meshletIndex = payload.MeshletIndices[groupId];
+    //uint startInstance = 256;
+    //uint instanceCount = 1;
+
+    ////3. 有AS，有Instance时
+    uint meshletIndex = payload.MeshletIndices[groupId/instanceInfo.InstanceCount];
+    uint startInstance = groupId % instanceInfo.InstanceCount;
+    uint instanceCount = 1;
 
     Meshlet m = Meshlets[meshletIndex];
     uint vertCount = m.VertCount * instanceCount;

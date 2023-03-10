@@ -27,6 +27,7 @@ ID3D12PipelineState* PSOManager::GetSetPipelineState(
 	{
 		CD3DX12_PIPELINE_STATE_STREAM_ROOT_SIGNATURE RootSignature;
 		CD3DX12_PIPELINE_STATE_STREAM_INPUT_LAYOUT InputLayout;
+		CD3DX12_PIPELINE_STATE_STREAM_AS AS;
 		CD3DX12_PIPELINE_STATE_STREAM_MS MS;
 		//CD3DX12_PIPELINE_STATE_STREAM_VS VS;
 		CD3DX12_PIPELINE_STATE_STREAM_PS PS;
@@ -41,6 +42,7 @@ ID3D12PipelineState* PSOManager::GetSetPipelineState(
 	} Stream;
 
 	Stream.RootSignature = rasterShader.GetRootSignature();
+	Stream.AS = { rasterShader.asShader.data, rasterShader.asShader.size };
 	Stream.MS = { rasterShader.msShader.data, rasterShader.msShader.size };
 	//Stream.VS = {rasterShader.vsShader.data, rasterShader.vsShader.size};
 	Stream.PS = { rasterShader.psShader.data, rasterShader.psShader.size };

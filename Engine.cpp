@@ -233,7 +233,7 @@ void Engine::LoadAssets()
         ThrowIfFailed(cmdList->Reset(cmdAlloc.Get(), nullptr));
         //导入模型
         modelImporter = std::make_unique<ModelImporter>();
-        modelImporter->Import(dxDevice.get(), "Models/nanosuit/nanosuit.obj");
+        modelImporter->Import(dxDevice.get(), cmdList.Get(), "Models/nanosuit/nanosuit.obj");
 
         ////parse模型
         models.emplace_back(dxDevice.get());
@@ -248,8 +248,8 @@ void Engine::LoadAssets()
 
     //1.5：创建Instance数据
     instanceController = std::make_unique<InstanceController>(dxDevice.get(),
-        8,  //row
-        8);    //radius
+        8,      //row, cube = row * row * row
+        8);     //radius
     instanceController->GeneratePerInstanceDataAndUpload(cmdList.Get());
 
     //二、给每个帧资源创建常量缓冲区描述符，并进行数据初始化（Upload + Default结构）：
@@ -311,9 +311,13 @@ void Engine::LoadAssets()
             1,      //registerIndex
             0 });         //spaceIndex
             //1//arraySize(numDescriptors)(only for tables)
-        shaderParams.emplace_back("DrawParams", Shader::Parameter{
+        shaderParams.emplace_back("InstanceInfo", Shader::Parameter{
             ShaderParameterType::ConstantBufferView,
             2,
+            0 });
+        shaderParams.emplace_back("MeshInfo", Shader::Parameter{
+            ShaderParameterType::ConstantBufferView,
+            3,
             0 });
         shaderParams.emplace_back("Meshlets", Shader::Parameter{
             ShaderParameterType::UnorderedAccessView,
@@ -344,6 +348,7 @@ void Engine::LoadAssets()
         ReadDataFromFile(std::wstring(L"Shaders/VertexShader1.cso").c_str(), &colorShader->vsShader.data, &colorShader->vsShader.size);
         ReadDataFromFile(std::wstring(L"Shaders/PixelShader1.cso").c_str(), &colorShader->psShader.data, &colorShader->psShader.size);
         ReadDataFromFile(std::wstring(L"Shaders/MeshShader.cso").c_str(), &colorShader->msShader.data, &colorShader->msShader.size);
+        ReadDataFromFile(std::wstring(L"Shaders/AmplificationShader.cso").c_str(), &colorShader->asShader.data, &colorShader->asShader.size);
         colorShader->rasterizeState = CD3DX12_RASTERIZER_DESC(D3D12_DEFAULT);
         colorShader->blendState = CD3DX12_BLEND_DESC(D3D12_DEFAULT);
         colorShader->depthStencilState.DepthEnable = TRUE;
@@ -482,7 +487,7 @@ void Engine::PopulateCommandList(FrameResource& frameRes, UINT64 frameIndex)
     D3D12_GPU_VIRTUAL_ADDRESS lightCbAddress = frameRes.constantDefault[1]->GetGPUAddress();
     colorShader->SetParameter(cmdList, "PerCameraConstant", cameraCbAddress);
     colorShader->SetParameter(cmdList, "PerLightConstant", lightCbAddress);
-    colorShader->SetParameter(cmdList, "DrawParams", instanceController->GetDrawParamsGPUAddress());
+    colorShader->SetParameter(cmdList, "InstanceInfo", instanceController->GetInstanceInfoGPUAddress());
     colorShader->SetParameter(cmdList, "InstanceData", instanceController->GetInstanceDataGPUAddress());
 
     // Indicate that the back buffer will be used as a render target.

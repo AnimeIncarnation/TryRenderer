@@ -22,6 +22,7 @@ public:
 	CompiledShaderObject hsShader;
 	CompiledShaderObject dsShader;
 	CompiledShaderObject msShader;
+	CompiledShaderObject asShader;
 	D3D12_RASTERIZER_DESC rasterizeState;
 	D3D12_DEPTH_STENCIL_DESC depthStencilState;
 	D3D12_BLEND_DESC blendState;

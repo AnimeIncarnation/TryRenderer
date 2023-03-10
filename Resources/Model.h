@@ -39,6 +39,7 @@ class Model
 	std::vector<UploadBuffer>  primitiveIndicePerMeshUpload;
 	std::vector<DefaultBuffer> meshletsPerMesh;
 	std::vector<UploadBuffer>  meshletsPerMeshUpload;
+	std::vector<D3D12_GPU_VIRTUAL_ADDRESS> meshInfoAddress;
 	std::vector<UINT64> meshletCount;
 
 public:
@@ -55,6 +56,7 @@ public:
 	std::span<const UINT64> GetVertexCount()const { return vertexCount; }
 	std::span<const UINT64> GetIndiceCount()const { return indiceCount; }
 	std::span<const UINT64> GetMeshletCount()const { return meshletCount; }
+	D3D12_GPU_VIRTUAL_ADDRESS GetMeshletInfoAddress(UINT i)const { return meshInfoAddress[i]; }
 	std::span<const D3D12_INPUT_ELEMENT_DESC> Layout() const { return layout.second; }
 	const std::vector<D3D12_VERTEX_BUFFER_VIEW>& GetVertexBufferView()const;
 	const std::vector<D3D12_INDEX_BUFFER_VIEW>& GetIndexBufferView()const;

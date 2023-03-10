@@ -42,12 +42,30 @@ struct Meshlet
 	UINT PrimitiveOffset;
 };
 
-struct Mesh2	//for mesh shader
+class Mesh2	//for mesh shader
 {
+public:
 	std::vector<Vertex> vertices;
 	std::vector<UINT> indices;
 	std::vector<UINT> primitives;
 	std::vector<Meshlet> meshlets;
+	std::unique_ptr<UploadBuffer> meshletCountConstantUpload;
+	std::unique_ptr<DefaultBuffer> meshletCountConstantDefault;
+
+	void UploadMeshletCountConstant(DXDevice* dxdevice, ID3D12GraphicsCommandList* cmdList)
+	{
+		meshletCountConstantUpload = std::make_unique<UploadBuffer>(dxdevice, sizeof(UINT));
+		UINT count = meshlets.size();
+		meshletCountConstantUpload->CopyData(0, { reinterpret_cast<const byte*>(&count), sizeof(UINT)});
+
+		meshletCountConstantDefault = std::make_unique<DefaultBuffer>(dxdevice, sizeof(UINT));
+		cmdList->CopyBufferRegion(meshletCountConstantDefault.get()->GetResource(), 0,
+			meshletCountConstantUpload.get()->GetResource(), 0, sizeof(UINT));
+	}
+	D3D12_GPU_VIRTUAL_ADDRESS GetMeshInfoGPUAddress() const
+	{
+		return meshletCountConstantDefault->GetGPUAddress();
+	}
 };
 
 
@@ -61,11 +79,12 @@ class ModelImporter
 	std::string directory;
 	Assimp::Importer importer;
 	DXDevice* dxDevice;
+	ID3D12GraphicsCommandList* cmdList;
 	//std::vector<Texture*> textures;
 
 public:
 	//path为从SolutionDir为开始的模型文件路径
-	void Import(DXDevice* dxdevice, std::string path)
+	void Import(DXDevice* dxdevice, ID3D12GraphicsCommandList* cmdlist, std::string path)
 	{
 		//除了加载文件之外，Assimp允许我们设定一些选项来强制它对导入的数据做一些额外的计算或操作：
 		//aiProcess_Triangulate：如果模型不是（全部）由三角形组成，它需要将模型所有的图元形状变换为三角形
@@ -76,27 +95,29 @@ public:
 		const aiScene* scene = importer.ReadFile(path, aiProcess_Triangulate);
 		//文件夹路径就是模型路径去掉最后一个斜杠后剩下的部分
 		directory = path.substr(0, path.find_last_of('/'));
-		ProcessNode(dxdevice, scene->mRootNode, scene);
+		dxDevice = dxdevice;
+		cmdList = cmdlist;
+		ProcessNode( scene->mRootNode, scene);
 	}
 
-	void ProcessNode(DXDevice* dxdevice, aiNode* node, const aiScene* scene)
+	void ProcessNode( aiNode* node, const aiScene* scene)
 	{
 		// 处理节点所有的网格（如果有的话）
 		for (UINT i = 0; i < node->mNumMeshes; i++)
 		{
 			aiMesh* mesh = scene->mMeshes[node->mMeshes[i]];
 			//ProcessModel(dxdevice, i, mesh, scene);
-			ProcessModelMeshlet(dxdevice, i, mesh, scene);
+			ProcessModelMeshlet(i, mesh, scene);
 		}
 		// 接下来对它的子节点重复这一过程
 		for (UINT i = 0; i < node->mNumChildren; i++)
 		{
-			ProcessNode(dxdevice, node->mChildren[i], scene);
+			ProcessNode( node->mChildren[i], scene);
 			//std::cout << "第"<<i<<"个Mesh完成拆分，共有"
 		}
 	}
 
-	void ProcessModel(DXDevice* dxdevice, UINT index, aiMesh* mesh, const aiScene* scene)
+	void ProcessModel( UINT index, aiMesh* mesh, const aiScene* scene)
 	{
 		Mesh& currMesh = model.emplace_back();
 		currMesh.vertices.reserve(mesh->mNumVertices);
@@ -144,7 +165,7 @@ public:
 		//}
 	}
 
-	void ProcessModelMeshlet(DXDevice* dxdevice, UINT index, aiMesh* mesh, const aiScene* scene)
+	void ProcessModelMeshlet( UINT index, aiMesh* mesh, const aiScene* scene)
 	{
 		Mesh2& currMesh = model2.emplace_back();
 		currMesh.vertices.reserve(mesh->mNumVertices);
@@ -362,6 +383,9 @@ public:
 			//}
 			//std::cout << std::endl << "finish" << std::endl;
 		}
+
+		//最后の最后把当前的Mesh的meshletCount上传到constant buffer
+		currMesh.UploadMeshletCountConstant(dxDevice, cmdList);
 	}
 
 

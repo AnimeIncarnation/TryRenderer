@@ -191,6 +191,7 @@
     <FxCompile Include="Shaders\MeshShader.hlsl" />
     <FxCompile Include="Shaders\PixelShader1.hlsl" />
     <FxCompile Include="Shaders\VertexShader1.hlsl" />
+    <FxCompile Include="Shaders\AmplificationShader.hlsl" />
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />
