@@ -16,8 +16,8 @@ struct PerCameraConstants
     float4x4 viewMatrix;
     float4x4 projMatrix;
     float4x4 vpMatrix;
+    float4 frustum[6];
 };
-ConstantBuffer<PerCameraConstants> perCameraConstants : register(b0);
 
 
 struct PerLightConstant
@@ -29,7 +29,6 @@ struct PerLightConstant
     float3 direction;
     float spotPower;
 };
-ConstantBuffer<PerLightConstant> perLightConstants: register(b1);
 
 struct PSInput
 {
@@ -38,6 +37,8 @@ struct PSInput
     float4 color : COLOR;
 };
 
+ConstantBuffer<PerCameraConstants> perCameraConstants : register(b0);
+ConstantBuffer<PerLightConstant> perLightConstants: register(b1);
 
 float4 main(PSInput input) : SV_TARGET
 {

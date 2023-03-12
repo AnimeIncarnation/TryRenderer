@@ -9,10 +9,12 @@
 
 class InstanceController
 {
+public:
 	struct PerObjectInstanceData
 	{
 		Math::Matrix4 worldMatrix;
 	};
+private:
 	DXDevice* dxdevice;
 	UINT row;
 	float radius;		//¼ä¸ô/2
@@ -27,7 +29,7 @@ class InstanceController
 public:
 	InstanceController(DXDevice* device, UINT row, float radius) :
 		dxdevice(device), row(row), instanceCount(row* row* row), radius(radius) {}
-
+	std::span<PerObjectInstanceData const> GetPerInstanceData()const { return perInstanceData; }
 	UINT GetInstanceCount() const { return instanceCount; }
 	void GeneratePerInstanceDataAndUpload(ID3D12GraphicsCommandList* cmdList)
 	{
@@ -38,7 +40,7 @@ public:
 			XMVECTOR index = XMVectorSet(float(i % row), float((i / row) % row), float(i / (row * row)), 0);
 			XMVECTOR location = index * radius * 2 - XMVectorReplicate(radius * row);
 
-			XMMATRIX world = XMMatrixTranslationFromVector(location);
+			XMMATRIX world = DirectX::XMMatrixTranslationFromVector(location);
 			PerObjectInstanceData& data = perInstanceData.emplace_back();
 			data.worldMatrix.SetX(world.r[0]);
 			data.worldMatrix.SetY(world.r[1]);

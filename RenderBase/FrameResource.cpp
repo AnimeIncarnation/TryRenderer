@@ -88,6 +88,7 @@ void FrameResource::DrawMeshlet(DXDevice* device, Model* model, ID3D12PipelineSt
 	cmdList->SetPipelineState(pipelineState);
 	//每个Mesh绑定自己的UAR
 	for (int i = 0; i < model->VertexBuffers().size();i++)
+	//for (int i = 0; i < 1 ;i++)
 	{
 		D3D12_GPU_VIRTUAL_ADDRESS meshInfo = model->GetMeshletInfoAddress(i);
 		D3D12_GPU_VIRTUAL_ADDRESS meshletAddress = model->MeshletBuffers()[i].GetGPUAddress();
@@ -100,12 +101,12 @@ void FrameResource::DrawMeshlet(DXDevice* device, Model* model, ID3D12PipelineSt
 		shader->SetParameter(cmdList.Get(), "Vertices", vertexAddress);
 		shader->SetParameter(cmdList.Get(), "VertexIndices", vertexIndiceAddress);
 		shader->SetParameter(cmdList.Get(), "PrimitiveIndices", primitiveIndiceAddress);
-		UINT meshletCountInThisMesh = model->GetMeshletCount()[i];
-		
+
 		//没有AS的时候，DispatchMesh数应等于meshletCountInThisMesh * InstanceCount
 		//有AS的时候，如下
+		UINT meshletCountInThisMesh = model->GetMeshletCount()[i];
 		UINT ASThreadCountInOneGroup = 32;
-		UINT ASGroups = (meshletCountInThisMesh + ASThreadCountInOneGroup - 1) / ASThreadCountInOneGroup;
+		UINT ASGroups = (meshletCountInThisMesh * instanceCount + ASThreadCountInOneGroup - 1) / ASThreadCountInOneGroup;
 		cmdList->DispatchMesh(ASGroups, 1, 1);
 	}
 }
@@ -114,11 +115,11 @@ void FrameResource::CopyConstantFromUploadToDefault()
 {
 	for (int i = 0;i < constantUpload.size();i++)
 	{
-		cmdList->ResourceBarrier(1,
-			get_rvalue_ptr(CD3DX12_RESOURCE_BARRIER::Transition(
-				constantDefault[i]->GetResource(),
-				D3D12_RESOURCE_STATE_COMMON,
-				D3D12_RESOURCE_STATE_COPY_DEST)));
+		//cmdList->ResourceBarrier(1,
+		//	get_rvalue_ptr(CD3DX12_RESOURCE_BARRIER::Transition(
+		//		constantDefault[i]->GetResource(),
+		//		D3D12_RESOURCE_STATE_COMMON,
+		//		D3D12_RESOURCE_STATE_COPY_DEST)));
 		cmdList->CopyBufferRegion(constantDefault[i]->GetResource(), 0, constantUpload[i]->GetResource(), 0, constantBufferSize[i]);
 		cmdList->ResourceBarrier(1,
 			get_rvalue_ptr(CD3DX12_RESOURCE_BARRIER::Transition(

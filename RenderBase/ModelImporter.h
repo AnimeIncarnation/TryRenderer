@@ -10,6 +10,8 @@
 #include <iostream>
 #include <span>
 #include "../Resources/Texture.h"
+#include "../Resources/UploadBuffer.h"
+#include "../Resources/DefaultBuffer.h"
 
 //存储整个场景加载过的texture，键为path
 //std::unordered_map<const char*, Texture> textureLoaded;
@@ -40,6 +42,8 @@ struct Meshlet
 	UINT VertOffset;
 	UINT PrimitiveCount;
 	UINT PrimitiveOffset;
+	DirectX::XMFLOAT3 boundingBox[2];	//min, max
+	DirectX::XMFLOAT4 boundingSphere;	//pos, r
 };
 
 class Mesh2	//for mesh shader
@@ -388,7 +392,47 @@ public:
 		currMesh.UploadMeshletCountConstant(dxDevice, cmdList);
 	}
 
+	void GenerateBoundsMeshlet()
+	{
+		for (auto& mesh : model2)
+		{
+			for (auto& meshlet : mesh.meshlets)
+			{
+				//遍历顶点，计算顶点两个最值，拿到AABB
+				DirectX::XMFLOAT3 maxFloat{-10000,-10000,-10000}, minFloat{ 10000,10000,10000 };
+				//std::cout << "该meshlet的顶点为：" << std::endl;
+				for (UINT i = meshlet.VertOffset; i < meshlet.VertOffset + meshlet.VertCount; i++)
+				{
+					DirectX::XMFLOAT3 pos = mesh.vertices[mesh.indices[i]].position;
+					//std::cout << pos.x << " " << pos.y << " " << pos.z << std::endl;
+					maxFloat.x = pos.x > maxFloat.x ? pos.x : maxFloat.x;
+					maxFloat.y = pos.y > maxFloat.y ? pos.y : maxFloat.y;
+					maxFloat.z = pos.z > maxFloat.z ? pos.z : maxFloat.z;
 
+					minFloat.x = pos.x < minFloat.x ? pos.x : minFloat.x;
+					minFloat.y = pos.y < minFloat.y ? pos.y : minFloat.y;
+					minFloat.z = pos.z < minFloat.z ? pos.z : minFloat.z;
+				}
+				meshlet.boundingBox[0] = minFloat;
+				meshlet.boundingBox[1] = maxFloat;
+				//std::cout << "该meshlet的最大最小值为："<<std::endl;
+				//std::cout << maxFloat.x<< " " << maxFloat.y << " " << maxFloat.z << std::endl;
+				//std::cout << minFloat.x<< " " << minFloat.y << " " << minFloat.z << std::endl;
+
+				//根据AABB计算出BoundingSphere
+				DirectX::XMFLOAT3 mid = { (maxFloat.x + minFloat.x) / 2,(maxFloat.y + minFloat.y) / 2,(maxFloat.z + minFloat.z) / 2 };
+				DirectX::XMFLOAT3 minToMax = { maxFloat.x - minFloat.x, maxFloat.y - minFloat.y ,maxFloat.z - minFloat.z };
+				float r = sqrt(minToMax.x * minToMax.x + minToMax.y * minToMax.y + minToMax.z * minToMax.z)/2;
+				meshlet.boundingSphere.x = mid.x;
+				meshlet.boundingSphere.y = mid.y;
+				meshlet.boundingSphere.z = mid.z;
+				meshlet.boundingSphere.w = r;
+				//std::cout << "该meshlet的中心和半径为："<<std::endl;
+				//std::cout << mid.x << " " << mid.y << " " << mid.z << " " << r << std::endl;
+				//std::cout << std::endl;
+			}
+		}
+	}
 
 	std::span<const Mesh> GetMeshes()const { return model; }
 	std::span<const Mesh2> GetMeshesMeshlet()const { return model2; }

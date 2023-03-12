@@ -6,6 +6,7 @@ struct PerCameraConstants
     float4x4 viewMatrix;
     float4x4 projMatrix;
     float4x4 vpMatrix;
+    float4 frustum[6];
 };
 
 struct PerLightConstant
@@ -38,33 +39,26 @@ struct Meshlet
     uint VertOffset;
     uint PrimitiveCount;
     uint PrimitiveOffset;
+    float3 boundingBox[2];	//min, max
+    float4 boundingSphere;	//pos, r
 };
 
-struct MeshInfo
-{
-    uint MeshletCount;
-};
 
 struct PerInstanceData
 {
     float4x4 modelMatrix;
 };
 
-struct InstanceInfo
-{
-    uint InstanceCount;
-    uint InstanceOffset;
-};
+
 
 struct Payload
 {
     uint MeshletIndices[32];
+    uint InstanceIndices[32];
 };
 
 ConstantBuffer<PerCameraConstants> perCameraConstants   : register(b0);
 ConstantBuffer<PerLightConstant> perLightConstants      : register(b1);
-ConstantBuffer<InstanceInfo> instanceInfo               : register(b2);
-ConstantBuffer<MeshInfo> MeshInfo                       : register(b3);
 RWStructuredBuffer<Meshlet> Meshlets          : register(u0);
 RWStructuredBuffer<Vertex>  Vertices          : register(u1);
 RWStructuredBuffer<uint>    VertexIndices     : register(u2);
@@ -145,8 +139,8 @@ void main(
     //uint instanceCount = 1;
 
     ////3. 有AS，有Instance时
-    uint meshletIndex = payload.MeshletIndices[groupId/instanceInfo.InstanceCount];
-    uint startInstance = groupId % instanceInfo.InstanceCount;
+    uint meshletIndex = payload.MeshletIndices[groupId];
+    uint startInstance = payload.InstanceIndices[groupId];   //这里必须是除以MeshletCount
     uint instanceCount = 1;
 
     Meshlet m = Meshlets[meshletIndex];
@@ -161,8 +155,12 @@ void main(
             
         Vertex vin = Vertices[vertexIndex];
         VertexOut vout;
+        //为什么左乘：原本CPU端DX是行主序，但是HLSL默认矩阵为列主序(相当于进行了一次转置)，所以就左乘啦
+        //HLSL中若使用row_major关键字定义的matrix，就不会转置了
         vout.position =  mul(InstanceData[startInstance].modelMatrix, vin.position);
         vout.position = mul(perCameraConstants.vpMatrix, vout.position);
+        //vout.position = mul(vin.position, InstanceData[startInstance].modelMatrix);
+        //vout.position = mul(vout.position, perCameraConstants.vpMatrix);
         vout.normal = vin.normal;
         vout.color = float4(0,0,0,1);
         outVerts[groupThreadId] = vout;

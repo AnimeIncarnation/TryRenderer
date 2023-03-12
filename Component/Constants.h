@@ -28,7 +28,8 @@ struct PerCameraConstant
     Math::Matrix4 viewMatrix;
     Math::Matrix4 projMatrix;
     Math::Matrix4 vpMatrix;
-    char padding[64];
+    Math::XMFLOAT4 frustum[6]; //иообвСср╫Эт╤
+    char padding[224];
 };
 static_assert((sizeof(PerCameraConstant) % 256) == 0, "Constant Buffer size must be 256-byte aligned");
 static constexpr UINT PerCameraConstantBufferSize = sizeof(PerCameraConstant);    // CB size is required to be 256-byte aligned.

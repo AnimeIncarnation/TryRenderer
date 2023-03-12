@@ -212,14 +212,17 @@ void Engine::LoadAssets()
     //零、建立相机，建立场景灯光
     {
         mainCamera = std::make_unique<Camera>();
-        Math::Vector3 up = Math::Vector3(-0.3181089, 0.8988663, 0.301407);
-        Math::Vector3 forward = Math::Vector3(-0.6525182, -0.438223, 0.6182076);
-        //-0.1493827374, 0.97098, 0.1867284217
-        Math::Vector3 pos = Math::Vector3(2.232773, 1.501817, -1.883978);
+        //Math::Vector3 up = Math::Vector3(-0.3181089, 0.8988663, 0.301407);
+        //Math::Vector3 forward = Math::Vector3(-0.6525182, -0.438223, 0.6182076);
+        //Math::Vector3 pos = Math::Vector3(0, 0, -20);
+        Math::Vector3 up = Math::Vector3(0, 1, 0);
+        Math::Vector3 pos = Math::Vector3(-10, 0, -35);
+        Math::Vector3 forward = pos + Math::Vector3(0, 0, 1);
         mainCamera->LookAt(pos, forward, up);
         mainCamera->aspect = static_cast<float>(m_scissorRect.right) / static_cast<float>(m_scissorRect.bottom);
         mainCamera->UpdateViewMatrix();
         mainCamera->UpdateProjectionMatrix();
+        mainCamera->GenerateBoundingFrustum();
 
         Light& parallelLight = sceneLights.emplace_back(Light::LightType::PARALLEL);
         Light& pointLight = sceneLights.emplace_back(Light::LightType::POINT);
@@ -234,6 +237,7 @@ void Engine::LoadAssets()
         //导入模型
         modelImporter = std::make_unique<ModelImporter>();
         modelImporter->Import(dxDevice.get(), cmdList.Get(), "Models/nanosuit/nanosuit.obj");
+        modelImporter->GenerateBoundsMeshlet();
 
         ////parse模型
         models.emplace_back(dxDevice.get());
@@ -399,7 +403,14 @@ void Engine::OnUpdate(FrameResource& frameRes, UINT64 frameIndex)
     mainCamera->UpdateProjectionMatrix();
     cameraConstantData.viewMatrix = mainCamera->GetViewMatrix();
     cameraConstantData.projMatrix = mainCamera->GetProjectionMatrix();
-    cameraConstantData.vpMatrix = cameraConstantData.projMatrix * cameraConstantData.viewMatrix;
+    cameraConstantData.vpMatrix = cameraConstantData.projMatrix * cameraConstantData.viewMatrix ;
+    //static bool test= false;
+    //if (!test)
+    //{
+    mainCamera->GenerateWorldBoundingFrustum(cameraConstantData, mainCamera.get());
+    //    test = true;
+    //}
+
     memcpy(frameRes.mappedCbvData[0], &cameraConstantData, sizeof(cameraConstantData));
 
     //2. 更新灯光参数
@@ -498,6 +509,56 @@ void Engine::PopulateCommandList(FrameResource& frameRes, UINT64 frameIndex)
     frameRes.SetRenderTarget(&m_viewport, &m_scissorRect, &rtvHandle, &dsvHandle);  //设置RS和OM
     frameRes.ClearRenderTarget(rtvHandle);                                          //清除RT
     frameRes.ClearDepthStencilBuffer(dsvHandle);                                    //清除DS
+
+
+
+
+    //{
+    //    //测试
+    //    InstanceController::PerObjectInstanceData worldMat = instanceController->GetPerInstanceData()[0];
+    //
+    //    for (auto& mesh : modelImporter->GetMeshesMeshlet())
+    //    {
+    //        std::cout << std::endl << "开启一个新的Mesh" << std::endl; 
+    //        for (auto& meshlet : mesh.meshlets)
+    //        {
+    //            std::cout << "开启一个新的Meshlet" << std::endl;
+    //            float radius = meshlet.boundingSphere.w;
+    //            DirectX::XMFLOAT4 boundingSphereModel = DirectX::XMFLOAT4(meshlet.boundingSphere.x, meshlet.boundingSphere.y, meshlet.boundingSphere.z, 1);
+    //            DirectX::XMFLOAT4 boundingSphereWorld = mul(XMMatrixTranspose(worldMat.worldMatrix), boundingSphereModel);
+    //
+    //            std::cout << "包围球的世界中心为" << boundingSphereWorld.x
+    //                << " " << boundingSphereWorld.y << " " << boundingSphereWorld.z
+    //                << " " << boundingSphereWorld.w << "，半径为" << radius << std::endl;;
+    //
+    //            for (UINT i = 0; i < 6; ++i)
+    //            {
+    //                std::cout << "平面" << i << "的四个参数(相机空间)为：" << mainCamera->boundingFrustum[i].GetX() << " " << mainCamera->boundingFrustum[i].GetY() << " "
+    //                    << mainCamera->boundingFrustum[i].GetZ() << " " << mainCamera->boundingFrustum[i].GetW() << std::endl;
+    //                std::cout << "平面" << i << "的四个参数(世界空间)为：" << cameraConstantData.frustum[i].x << " " << cameraConstantData.frustum[i].y << " "
+    //                    << cameraConstantData.frustum[i].z << " " << cameraConstantData.frustum[i].w << std::endl;
+    //                if (dot(boundingSphereWorld, cameraConstantData.frustum[i]) >= radius)
+    //                {
+    //                    std::cout << "该Meshlet在视锥体外面，因为它与平面" << i << "的距离为" << dot(boundingSphereWorld, cameraConstantData.frustum[i]);
+    //                    std::cout << std::endl;
+    //                    break;
+    //                }
+    //                else
+    //                {
+    //                    std::cout << "该Meshlet处于平面" << i << "内部，距离为"<< dot(boundingSphereWorld, cameraConstantData.frustum[i]) ;
+    //                    std::cout << std::endl;
+    //                }
+    //                if (i == 5)
+    //                {
+    //                    std::cout << "该Meshlet处于视锥体内部";
+    //                    std::cout << std::endl;
+    //                }
+    //            }
+    //        }
+    //    }
+    //}
+
+
     for(auto& thisModel : models)
         frameRes.DrawMeshlet(dxDevice.get(), &thisModel, m_pipelineState.Get(),
             colorShader.get(),instanceController->GetInstanceCount());           //设置PSO，设置IA，画
@@ -574,6 +635,12 @@ void Engine::OnKeyUp(UINT8 key)
         mainCamera->isUpDown = false;
     }
     mainCamera->OutputPosition();
+    //for (UINT i = 0;i < 6;i++)
+    //{
+    //    std::cout << "修改后的视锥面"<<i<<"为" << std::endl;
+    //    std::cout << cameraConstantData.frustum[i].m128_f32[0] << " " << cameraConstantData.frustum[i].m128_f32[1] << " "
+    //        << cameraConstantData.frustum[i].m128_f32[2] << " " << cameraConstantData.frustum[i].m128_f32[3] << " " << std::endl;;
+    //}
 }
 
 void Engine::OnMouseMove(WPARAM btnState, int x, int y)

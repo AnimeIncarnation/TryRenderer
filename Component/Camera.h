@@ -6,6 +6,8 @@
 #include "../DXMath/DXMath.h"
 #include "../DXMath/MathHelper.h"
 #include <iostream>
+#include "DirectXCollision.h"
+#include "../Component/Constants.h"
 
 class Camera
 {
@@ -37,6 +39,8 @@ public:
 
 	void UpdateViewMatrix();
 	void UpdateProjectionMatrix();
+	void GenerateBoundingFrustum();
+	void GenerateWorldBoundingFrustum(PerCameraConstant&, Camera*);
 	Math::Matrix4 const& GetViewMatrix() const;
 	Math::Matrix4 const& GetProjectionMatrix() const;
 
@@ -53,8 +57,8 @@ private:
 	float nearZ = 1.f;
 	float farZ = 1000.f;
 	float fovY = MathHelper::Pi * 1/4;
-	float nearHeight = tan(fovY / 2) * nearZ;	//近平面的高度
-	float farHeight = tan(fovY / 2) * farZ;
+	float nearHeight = tan(fovY / 2) * nearZ * 2;	//近平面的高度
+	float farHeight = tan(fovY / 2) * farZ * 2;
 	bool isOrtho = false;
 	float orthoSize = 5;
 
@@ -68,6 +72,7 @@ public:
 	Math::Vector3 right = {1, 0, 0};
 	Math::Vector3 up = {0, 1, 0};
 	Math::Vector3 forward = {0, 0, 1};
+	Math::Vector4 boundingFrustum[6];
 
 	//camera移动控制
 	bool isWalking = false;

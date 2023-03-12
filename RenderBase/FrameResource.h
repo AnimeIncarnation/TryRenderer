@@ -28,7 +28,7 @@ public:
     std::vector<std::unique_ptr<DefaultBuffer>> constantDefault;         //
     std::vector<std::unique_ptr<UploadBuffer>> constantUpload;           //
     std::vector<UINT> constantBufferSize;
-    std::vector<UINT8*> mappedCbvData;                                   //
+    std::vector<UINT8*> mappedCbvData;  //0为per camera constat，1为per light constant。另外两个常量缓冲区instance info和mesh info不归帧资源管理
 	UINT64 fenceID = 0;                                                  //
     bool populated = false;
 
@@ -47,7 +47,8 @@ public:
         CD3DX12_CPU_DESCRIPTOR_HANDLE const* dsvHandle = nullptr);
     void ClearRenderTarget(const CD3DX12_CPU_DESCRIPTOR_HANDLE& rtv);   //Clear RT操作
     void ClearDepthStencilBuffer(const CD3DX12_CPU_DESCRIPTOR_HANDLE& dsv); //Clear DS操作
-    //设置IA，设置PSO + Draw
+
+    //设置IA，设置PSO + Draw。注意Draw的单位都是Model
     void DrawMesh(DXDevice* device, Model* model, ID3D12PipelineState* pipelineState);
     //void DrawMesh(DXDevice* device, D3D12_VERTEX_BUFFER_VIEW* vbView, D3D12_INDEX_BUFFER_VIEW* ibView, ID3D12PipelineState* pipelineState, UINT64 indexCount);
     void DrawMeshlet(DXDevice* device, Model* model, ID3D12PipelineState* pipelineState, RasterShader* shader, UINT instanceCount);
