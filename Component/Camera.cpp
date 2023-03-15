@@ -91,21 +91,22 @@ void Camera::GenerateWorldBoundingFrustum(PerCameraConstant& perCameraConstant, 
 		//拿到相机的点法向。向量的空间变换第四位是零，点已经是世界空间坐标了
 		Math::Vector4 norm = { mainCamera->boundingFrustum[i].x, mainCamera->boundingFrustum[i].y, mainCamera->boundingFrustum[i].z ,0 };
 		Math::Vector3 pos = mainCamera->position;
-		//变为世界法向（必须转置！！！因为这里的operator*重载的是列向量乘法）
-		norm = Math::Matrix4(XMMatrixTranspose(perCameraConstant.viewMatrix)) * norm;
+
+		//变为世界法向
+		norm = viewInverse * norm;
 		//法向归一化
 		norm = Math::Vector3(DirectX::XMVector3Normalize(norm));
 		perCameraConstant.frustum[i].x = norm.GetX();
 		perCameraConstant.frustum[i].y = norm.GetY();
 		perCameraConstant.frustum[i].z = norm.GetZ();
+		Math::Vector3 nearPoint = pos + mainCamera->forward * mainCamera->NearZ();
+		Math::Vector3 farPoint = pos + mainCamera->forward * mainCamera->FarZ();
 		if (i < 4)
 			perCameraConstant.frustum[i].w = -(norm.GetX() * pos.GetX() + norm.GetY() * pos.GetY() + norm.GetZ() * pos.GetZ());  //根据点和法向算出D
 		else if (i == 4)
-			perCameraConstant.frustum[i].w = -(norm.GetX() * pos.GetX() + norm.GetY() * pos.GetY()
-				+ norm.GetZ() * (pos.GetZ() + mainCamera->forward.GetZ() * mainCamera->NearZ()));
+			perCameraConstant.frustum[i].w = -(norm.GetX() * nearPoint.GetX() + norm.GetY() * nearPoint.GetY() + norm.GetZ() * nearPoint.GetZ());
 		else
-			perCameraConstant.frustum[i].w = -(norm.GetX() * pos.GetX() + norm.GetY() * pos.GetY()
-				+ norm.GetZ() * (pos.GetZ() + mainCamera->forward.GetZ() * mainCamera->FarZ()));
+			perCameraConstant.frustum[i].w = -(norm.GetX() * farPoint.GetX() + norm.GetY() * farPoint.GetY() + norm.GetZ() * farPoint.GetZ());
 	}
 }
 
@@ -146,15 +147,15 @@ void Camera::Move()
 void Camera::Pitch(float angle)
 {
 	XMMATRIX rotate = XMMatrixRotationAxis(XMLoadFloat3((XMFLOAT3*)&right), angle);
-	XMStoreFloat3((XMFLOAT3*)&up, XMVector3TransformNormal(XMLoadFloat3((XMFLOAT3*)&up), rotate));
-	XMStoreFloat3((XMFLOAT3*)&forward, XMVector3TransformNormal(XMLoadFloat3((XMFLOAT3*)&forward), rotate));
+	XMStoreFloat3((XMFLOAT3*)&up, XMVector3Normalize(XMVector3TransformNormal(XMLoadFloat3((XMFLOAT3*)&up), rotate)));
+	XMStoreFloat3((XMFLOAT3*)&forward, XMVector3Normalize(XMVector3TransformNormal(XMLoadFloat3((XMFLOAT3*)&forward), rotate)));
 }
 
 void Camera::RotateY(float angle)
 {
 	//XMMATRIX rotate = XMMatrixRotationY(angle);
 	XMMATRIX rotate = XMMatrixRotationAxis(XMLoadFloat3((XMFLOAT3*)&up), angle);
-	XMStoreFloat3((XMFLOAT3*)&up, XMVector3TransformNormal(XMLoadFloat3((XMFLOAT3*)&up), rotate));
-	XMStoreFloat3((XMFLOAT3*)&right, XMVector3TransformNormal(XMLoadFloat3((XMFLOAT3*)&right), rotate));
-	XMStoreFloat3((XMFLOAT3*)&forward, XMVector3TransformNormal(XMLoadFloat3((XMFLOAT3*)&forward), rotate));
+	XMStoreFloat3((XMFLOAT3*)&up, XMVector3Normalize(XMVector3TransformNormal(XMLoadFloat3((XMFLOAT3*)&up), rotate)));
+	XMStoreFloat3((XMFLOAT3*)&right, XMVector3Normalize(XMVector3TransformNormal(XMLoadFloat3((XMFLOAT3*)&right), rotate)));
+	XMStoreFloat3((XMFLOAT3*)&forward, XMVector3Normalize(XMVector3TransformNormal(XMLoadFloat3((XMFLOAT3*)&forward), rotate)));
 }

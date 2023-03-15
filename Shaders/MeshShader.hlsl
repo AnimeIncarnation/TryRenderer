@@ -50,7 +50,6 @@ struct PerInstanceData
 };
 
 
-
 struct Payload
 {
     uint MeshletIndices[32];
@@ -64,6 +63,7 @@ RWStructuredBuffer<Vertex>  Vertices          : register(u1);
 RWStructuredBuffer<uint>    VertexIndices     : register(u2);
 RWStructuredBuffer<uint>    PrimitiveIndices  : register(u3);
 StructuredBuffer<PerInstanceData>  InstanceData : register(t0);
+
 
 
 /////
