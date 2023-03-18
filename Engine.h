@@ -27,6 +27,8 @@
 #include "Component/Light.h"
 #include "RenderBase/ModelImporter.h"
 #include "Component/InstanceController.h"
+#include "Component/ClusterLighting.h"
+#include "Component/ComputeShader.h"
 
 using namespace DirectX;
 
@@ -69,11 +71,14 @@ private:
     UINT m_dsvDescriptorSize;
     ComPtr<ID3D12PipelineState> m_pipelineState;
     std::unique_ptr<PSOManager> m_psoManager;
+    std::vector<ComPtr<ID3D12PipelineState>> computePSOs;
     std::unique_ptr<RasterShader> colorShader;
+    std::unique_ptr<ComputeShader> computeShader;
 
     // App resources.
     PerCameraConstant cameraConstantData;
-    PerLightConstant lightConstantData;
+    SceneConstant sceneConstantData;
+    ClusterLighting clusterLighting;
     std::unique_ptr<InstanceController> instanceController;
     std::unique_ptr<ModelImporter> modelImporter;
     std::vector<Light> sceneLights;

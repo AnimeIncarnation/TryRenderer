@@ -1,29 +1,14 @@
 //#define ROOT_SIG "CBV(b0), \
 //                  CBV(b1)"
 //
-struct PerCameraConstants
-{
-    float4x4 viewMatrix;
-    float4x4 projMatrix;
-    float4x4 vpMatrix;
-    float4 frustum[6];
-};
-
-struct PerLightConstant
-{
-    float3 stength;
-    float fallOffStart;
-    float3 position;
-    float fallOffEnd;
-    float3 direction;
-    float spotPower;
-};
+#include "Common.hlsl"
 
 struct VertexOut
 {
     float4 position : SV_Position;
     float3 normal   : NORMAL;
     float4 color    : COLOR;
+    float3 worldPos : POSITION;
 };
 
 struct Vertex
@@ -57,7 +42,6 @@ struct Payload
 };
 
 ConstantBuffer<PerCameraConstants> perCameraConstants   : register(b0);
-ConstantBuffer<PerLightConstant> perLightConstants      : register(b1);
 RWStructuredBuffer<Meshlet> Meshlets          : register(u0);
 RWStructuredBuffer<Vertex>  Vertices          : register(u1);
 RWStructuredBuffer<uint>    VertexIndices     : register(u2);
@@ -158,6 +142,7 @@ void main(
         //为什么左乘：原本CPU端DX是行主序，但是HLSL默认矩阵为列主序(相当于进行了一次转置)，所以就左乘啦
         //HLSL中若使用row_major关键字定义的matrix，就不会转置了
         vout.position =  mul(InstanceData[startInstance].modelMatrix, vin.position);
+        vout.worldPos = vout.position.xyz;
         vout.position = mul(perCameraConstants.vpMatrix, vout.position);
         //vout.position = mul(vin.position, InstanceData[startInstance].modelMatrix);
         //vout.position = mul(vout.position, perCameraConstants.vpMatrix);

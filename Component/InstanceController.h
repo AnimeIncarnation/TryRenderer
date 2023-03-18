@@ -1,6 +1,6 @@
 #pragma once
-#ifndef _INSTANCECONTROLLER_H_
-#define _INSTANCECONTROLLER_H_
+#ifndef _INSTANCE_CONTROLLER_H_
+#define _INSTANCE_CONTROLLER_H_
 
 #include <minwindef.h>
 #include "../DXMath/MathHelper.h"
@@ -51,13 +51,13 @@ public:
 		instanceUpload = std::make_unique<UploadBuffer>(dxdevice, instanceDataSize);
 		instanceUpload->CopyData(0, { reinterpret_cast<const byte*>(perInstanceData.data()) ,instanceDataSize});
 		instanceDefault= std::make_unique<DefaultBuffer>(dxdevice, instanceDataSize);
-		cmdList->CopyBufferRegion(instanceDefault.get()->GetResource(), 0, instanceUpload.get()->GetResource(), 0, instanceDataSize);
+		cmdList->CopyBufferRegion(instanceDefault->GetResource(), 0, instanceUpload->GetResource(), 0, instanceDataSize);
 
 		instanceInfoUpload = std::make_unique<UploadBuffer>(dxdevice, sizeof(UINT) * 2);
 		UINT arr[2] = { instanceCount, 0 };
 		instanceInfoUpload->CopyData(0, { reinterpret_cast<const byte*>(arr) ,sizeof(UINT) * 2 });
 		instanceInfoDefault = std::make_unique<DefaultBuffer>(dxdevice, sizeof(UINT) * 2);
-		cmdList->CopyBufferRegion(instanceInfoDefault.get()->GetResource(), 0, instanceInfoUpload.get()->GetResource(), 0, sizeof(UINT) * 2);
+		cmdList->CopyBufferRegion(instanceInfoDefault->GetResource(), 0, instanceInfoUpload->GetResource(), 0, sizeof(UINT) * 2);
 	}
 
 	D3D12_GPU_VIRTUAL_ADDRESS GetInstanceInfoGPUAddress() const { return instanceInfoDefault->GetGPUAddress(); }

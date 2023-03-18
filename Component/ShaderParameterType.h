@@ -1,6 +1,6 @@
 #pragma once
-#ifndef _SHADERPARAMETERTYPE_H_
-#define _SHADERPARAMETERTYPE_H_
+#ifndef _SHADER_PARAMETER_TYPE_H_
+#define _SHADER_PARAMETER_TYPE_H_
 
 enum class ShaderParameterType
 {

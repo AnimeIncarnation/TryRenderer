@@ -1,16 +1,12 @@
 #pragma once
-#ifndef _RASTERSHADER_H_
-#define _RASTERSHADER_H_
+#ifndef _RASTER_SHADER_H_
+#define _RASTER_SHADER_H_
 
 #include "Shader.h"
 using Microsoft::WRL::ComPtr;
 
 //DXIL。仅获取编译好的Shader。在Build期间会自动编译好Shader的到cso文件
-struct CompiledShaderObject
-{
-	byte* data;
-	UINT size;
-};
+
 
 
 class RasterShader: public Shader

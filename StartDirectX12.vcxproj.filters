@@ -72,6 +72,12 @@
     <ClCompile Include="Resources\Texture.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
+    <ClCompile Include="Component\ClusterLighting.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="Component\ComputeShader.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="stdafx.h">
@@ -185,13 +191,20 @@
     <ClInclude Include="Component\InstanceController.h">
       <Filter>头文件</Filter>
     </ClInclude>
+    <ClInclude Include="Component\ClusterLighting.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="Component\ComputeShader.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <FxCompile Include="Shaders\shaders.hlsl" />
     <FxCompile Include="Shaders\MeshShader.hlsl" />
     <FxCompile Include="Shaders\PixelShader1.hlsl" />
-    <FxCompile Include="Shaders\VertexShader1.hlsl" />
     <FxCompile Include="Shaders\AmplificationShader.hlsl" />
+    <FxCompile Include="Shaders\LightDistribution.hlsl" />
+    <FxCompile Include="Shaders\ClusterGenerate.hlsl" />
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />

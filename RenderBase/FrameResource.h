@@ -1,6 +1,6 @@
 #pragma once
-#ifndef _FRAME_RESOURCE_
-#define _FRAME_RESOURCE_
+#ifndef _FRAME_RESOURCE_H_
+#define _FRAME_RESOURCE_H_
 
 #include <functional>
 #include "../stdafx.h"
@@ -28,7 +28,8 @@ public:
     std::vector<std::unique_ptr<DefaultBuffer>> constantDefault;         //
     std::vector<std::unique_ptr<UploadBuffer>> constantUpload;           //
     std::vector<UINT> constantBufferSize;
-    std::vector<UINT8*> mappedCbvData;  //0为per camera constat，1为per light constant。另外两个常量缓冲区instance info和mesh info不归帧资源管理
+    std::vector<UINT8*> mappedCbvData;
+    //0为per camera constat，1为scene constant，2为pointlight constant。另外两个常量缓冲区instance info和mesh info不归帧资源管理
 	UINT64 fenceID = 0;                                                  //
     bool populated = false;
 

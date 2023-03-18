@@ -1,4 +1,5 @@
 #include "Shader.h"
+#include "iostream"
 
 Shader::Shader(std::span<std::pair<std::string, Parameter>const> params, DXDevice* dxDevice)
 {
@@ -80,11 +81,17 @@ bool Shader::SetParameter(ID3D12GraphicsCommandList* cmdList, std::string name, 
 	return true;
 }
 
+
+
+
 bool Shader::SetParameter(ID3D12GraphicsCommandList* cmdList, std::string name, D3D12_GPU_VIRTUAL_ADDRESS address)
 {
     auto var = GetParameter(name);
     if (!var)
+    {
+        std::cout << "ComputeShader参数设置错误！没有找到改名字的参数！" << std::endl;
         return false;
+    }
     UINT paramIndex = var->rootSigIndex;
     switch (var->type)
     {
@@ -102,3 +109,31 @@ bool Shader::SetParameter(ID3D12GraphicsCommandList* cmdList, std::string name, 
     }
 	return true;
 }
+
+
+bool Shader::SetComputeParameter(ID3D12GraphicsCommandList* cmdList, std::string name, D3D12_GPU_VIRTUAL_ADDRESS address)
+{
+    auto var = GetParameter(name);
+    if (!var)
+    {
+        std::cout << "ComputeShader参数设置错误！没有找到改名字的参数！" << std::endl;
+        return false;
+    }
+    UINT paramIndex = var->rootSigIndex;
+    switch (var->type)
+    {
+    case ShaderParameterType::ConstantBufferView:
+        cmdList->SetComputeRootConstantBufferView(var->rootSigIndex, address);
+        break;
+    case ShaderParameterType::ShaderResourceView:
+        cmdList->SetComputeRootShaderResourceView(var->rootSigIndex, address);
+        break;
+    case ShaderParameterType::UnorderedAccessView:
+        cmdList->SetComputeRootUnorderedAccessView(var->rootSigIndex, address);
+        break;
+    default:
+        return false;
+    }
+    return true;
+}
+

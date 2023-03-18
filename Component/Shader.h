@@ -10,6 +10,14 @@
 #include "../DXSampleHelper.h"
 #include "../RenderBase/DXDevice.h"
 
+
+struct CompiledShaderObject
+{
+	byte* data;
+	UINT size;
+};
+
+
 //Shader基类主要描述shader参数（即根签名）
 class Shader
 {
@@ -43,6 +51,7 @@ public:
 	Shader(std::span<std::pair<std::string, Parameter>const>, ComPtr<ID3D12RootSignature>&&); //这里要把根签名移动进来让Shader管理了
 	bool SetParameter(ID3D12GraphicsCommandList*, std::string, CD3DX12_GPU_DESCRIPTOR_HANDLE); //写入根实参之描述符的句柄（二级指针）（根参数为CBV/SRV/UAV TABLE）
 	bool SetParameter(ID3D12GraphicsCommandList*, std::string, D3D12_GPU_VIRTUAL_ADDRESS); //写入根实参之缓冲区地址（一级指针）（根参数为CBV/SRV/UAV）
+	bool SetComputeParameter(ID3D12GraphicsCommandList* cmdList, std::string name, D3D12_GPU_VIRTUAL_ADDRESS address);
 	ID3D12RootSignature* GetRootSignature() const { return rootSignature.Get(); }
 	Shader(Shader&&) = default;
 };

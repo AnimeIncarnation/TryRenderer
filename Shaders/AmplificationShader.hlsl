@@ -1,4 +1,6 @@
 
+#include "Common.hlsl"
+
 struct Payload
 {
     uint MeshletIndices[32];
@@ -16,13 +18,6 @@ struct MeshInfo
     uint MeshletCount;
 };
 
-struct PerCameraConstants
-{
-    float4x4 viewMatrix;
-    float4x4 projMatrix;
-    float4x4 vpMatrix;
-    float4 frustum[6];
-};
 
 struct PerInstanceData
 {
@@ -62,7 +57,6 @@ bool IsOutsideFrustum(uint meshletId, uint instanceId)
     float radius = currMeshlet.boundingSphere.w;
     for (uint i = 0; i < 6; ++i)
     {
-        //当往前走的时，frustum[0]的w竟在后退
         if (dot(center, perCameraConstants.frustum[i]) >= radius) 
         {
             return true;

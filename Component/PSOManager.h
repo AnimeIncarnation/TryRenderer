@@ -1,6 +1,6 @@
 #pragma once
-#ifndef _PSOMANAGER_H_
-#define _PSOMANAGER_H_
+#ifndef _PSO_MANAGER_H_
+#define _PSO_MANAGER_H_
 
 #include "RasterShader.h"
 class PSOManager

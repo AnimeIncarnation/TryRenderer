@@ -33,7 +33,8 @@ Engine::Engine(UINT width, UINT height, std::wstring name) :
     m_scissorRect(0, 0, static_cast<LONG>(width), static_cast<LONG>(height)),
     m_rtvDescriptorSize(0),
     cameraConstantData{},
-    lightConstantData{}
+    sceneConstantData{},
+    clusterLighting{}
 {
 }
 
@@ -168,7 +169,7 @@ void Engine::LoadPipeline()
         {
             i = std::make_unique<FrameResource>(dxDevice.get());
             i->EmplaceConstantBuffer(dxDevice.get(), PerCameraConstantBufferSize);
-            i->EmplaceConstantBuffer(dxDevice.get(), PerLightConstantBufferSize);
+            i->EmplaceConstantBuffer(dxDevice.get(), SceneConstantBufferSize);
         }
     }
 }
@@ -208,6 +209,7 @@ void Engine::LoadAssets()
 {
     auto& cmdList = frameResources[m_frameIndex]->cmdList;
     auto& cmdAlloc = frameResources[m_frameIndex]->cmdAllocator;
+    ThrowIfFailed(cmdList->Reset(cmdAlloc.Get(), nullptr));
 
     //零、建立相机，建立场景灯光
     {
@@ -223,9 +225,23 @@ void Engine::LoadAssets()
         mainCamera->UpdateViewMatrix();
         mainCamera->UpdateProjectionMatrix();
         mainCamera->GenerateBoundingFrustum();
+        {   //在这里初始化一下SceneConstant的farZ和nearZ
+            sceneConstantData.farZ = mainCamera->FarZ();
+            sceneConstantData.nearZ = mainCamera->NearZ();
+        }
 
         Light& parallelLight = sceneLights.emplace_back(Light::LightType::PARALLEL);
-        Light& pointLight = sceneLights.emplace_back(Light::LightType::POINT);
+        //向ClusterLighting类中插入点光
+        for (UINT i = 0;i < 10;i++)
+        {
+            Math::XMFLOAT3 position = { -40 + float(i) * 10,-40 + float(i) * 10,-40 + float(i) * 10 };
+            float radius = 12;
+            Math::XMFLOAT3 strength = { 0.25f + float(i) * 0.05f,0.75f - float(i) * 0.05f, 1 - float(i) * 0.1f };
+            clusterLighting.InsertPointLight({ position,radius,strength });
+        }
+        clusterLighting.CreateBuffers(dxDevice.get(), 32 * 16 * 128 * sizeof(Cluster)); 
+        clusterLighting.CopyAndUpload(cmdList.Get());
+        
     }
 
     //一、建立Mesh（建立存储顶点的Resource）：
@@ -233,7 +249,7 @@ void Engine::LoadAssets()
     //②创建UploadBuffer，把数据从CPU端拷贝到GPU端。
     //③创建Mesh，把数据从UploadBuffer拷贝到Mesh中的DefaultBuffer。
     {   
-        ThrowIfFailed(cmdList->Reset(cmdAlloc.Get(), nullptr));
+
         //导入模型
         modelImporter = std::make_unique<ModelImporter>();
         modelImporter->Import(dxDevice.get(), cmdList.Get(), "Models/nanosuit/nanosuit.obj");
@@ -255,6 +271,8 @@ void Engine::LoadAssets()
         8,      //row, cube = row * row * row
         8);     //radius
     instanceController->GeneratePerInstanceDataAndUpload(cmdList.Get());
+
+
 
     //二、给每个帧资源创建常量缓冲区描述符，并进行数据初始化（Upload + Default结构）：
     //其实这里不用创建描述符，因为我们直接给根签名绑定的是absolute buffer location而非descriptor
@@ -289,7 +307,7 @@ void Engine::LoadAssets()
                 if(j==0)
                     memcpy(frameResources[i]->mappedCbvData[j], &cameraConstantData, frameResources[i]->constantBufferSize[j]);
                 else if(j ==1)
-                    memcpy(frameResources[i]->mappedCbvData[j], &lightConstantData, frameResources[i]->constantBufferSize[j]);
+                    memcpy(frameResources[i]->mappedCbvData[j], &sceneConstantData, frameResources[i]->constantBufferSize[j]);
 
             }
         }
@@ -310,7 +328,7 @@ void Engine::LoadAssets()
             ShaderParameterType::ConstantBufferView,
             0,      //registerIndex
             0 });      //spaceIndex
-        shaderParams.emplace_back("PerLightConstant", Shader::Parameter{
+        shaderParams.emplace_back("SceneConstant", Shader::Parameter{
             ShaderParameterType::ConstantBufferView,
             1,      //registerIndex
             0 });         //spaceIndex
@@ -339,11 +357,55 @@ void Engine::LoadAssets()
             ShaderParameterType::UnorderedAccessView,
             3,
             0 });
+        shaderParams.emplace_back("Clusters", Shader::Parameter{
+            ShaderParameterType::UnorderedAccessView,
+            4,
+            0 });
+        shaderParams.emplace_back("CulledPointLightIndices", Shader::Parameter{
+            ShaderParameterType::UnorderedAccessView,
+            5,
+            0 });
+        shaderParams.emplace_back("LightAssignBuffer", Shader::Parameter{
+            ShaderParameterType::UnorderedAccessView,
+            6,
+            0 });
         shaderParams.emplace_back("InstanceData", Shader::Parameter{
             ShaderParameterType::ShaderResourceView,
             0,
             0 });
+        shaderParams.emplace_back("AllPointLights", Shader::Parameter{
+            ShaderParameterType::ShaderResourceView,
+            1,
+            0 });
         colorShader = std::make_unique<RasterShader>(shaderParams, dxDevice.get());
+
+
+        std::vector<std::pair<std::string, Shader::Parameter>> shaderParamCompute;
+        shaderParamCompute.emplace_back("PerCameraConstant", Shader::Parameter{
+            ShaderParameterType::ConstantBufferView,
+            0,       //b0
+            0 });     
+        shaderParamCompute.emplace_back("SceneConstant", Shader::Parameter{
+            ShaderParameterType::ConstantBufferView,
+            1,   
+            0 });
+        shaderParamCompute.emplace_back("Clusters", Shader::Parameter{
+            ShaderParameterType::UnorderedAccessView,
+            0,      //u0
+            0 });
+        shaderParamCompute.emplace_back("CulledPointLightIndices", Shader::Parameter{
+            ShaderParameterType::UnorderedAccessView,
+            1,
+            0 });
+        shaderParamCompute.emplace_back("LightAssignBuffer", Shader::Parameter{
+            ShaderParameterType::UnorderedAccessView,
+            2,
+            0 });
+        shaderParamCompute.emplace_back("AllPointLights", Shader::Parameter{
+            ShaderParameterType::ShaderResourceView,
+            0,      //t0
+            0 });
+        computeShader = std::make_unique<ComputeShader>(shaderParamCompute, dxDevice.get());
     }
         
     //四、利用编译期编译好的MS/VS和PS创建RasterShader，创建PSO（RasterShader也记录PSO相关的光栅化信息）
@@ -375,6 +437,29 @@ void Engine::LoadAssets()
                 dsvFmt,
                 "MeshPixel1");
     }
+    //四点五、创建计算PSO
+    {
+        //Shader的编译方式采取在编译项目时共同编译，运行时直接拿.cso文件即可
+        computeShader->csShader.emplace_back();
+        computeShader->csShader.emplace_back();
+        ReadDataFromFile(std::wstring(L"Shaders/ClusterGenerate.cso").c_str(), &computeShader->csShader[0].data, &computeShader->csShader[0].size);
+        ReadDataFromFile(std::wstring(L"Shaders/LightDistribution.cso").c_str(), &computeShader->csShader[1].data, &computeShader->csShader[1].size);
+       
+        computePSOs.emplace_back();
+        ComPtr<ID3D12PipelineState>& computePSO1 = computePSOs[0];
+        D3D12_COMPUTE_PIPELINE_STATE_DESC computePsoDesc1 = {};
+        computePsoDesc1.pRootSignature = computeShader->GetRootSignature();
+        computePsoDesc1.CS = { computeShader->csShader[0].data, computeShader->csShader[0].size};
+        ThrowIfFailed(dxDevice->Device()->CreateComputePipelineState(&computePsoDesc1, IID_PPV_ARGS(&computePSO1)));
+
+        computePSOs.emplace_back();
+        ComPtr<ID3D12PipelineState>& computePSO2 = computePSOs[1];
+        D3D12_COMPUTE_PIPELINE_STATE_DESC computePsoDesc2 = {};
+        computePsoDesc2.pRootSignature = computeShader->GetRootSignature();
+        computePsoDesc2.CS = { computeShader->csShader[1].data, computeShader->csShader[1].size };
+        ThrowIfFailed(dxDevice->Device()->CreateComputePipelineState(&computePsoDesc2, IID_PPV_ARGS(&computePSO2)));
+    }
+
 
     //五、创建同步用围栏，等待前LoadAssets阶段完成
     {
@@ -401,24 +486,24 @@ void Engine::OnUpdate(FrameResource& frameRes, UINT64 frameIndex)
     //1. 更新相机参数，获取更新后的相机参数，拷贝至map到的地址
     mainCamera->UpdateViewMatrix();
     mainCamera->UpdateProjectionMatrix();
+    //写入CPU PerCameraConstantBuffer
     cameraConstantData.viewMatrix = mainCamera->GetViewMatrix();
     cameraConstantData.projMatrix = mainCamera->GetProjectionMatrix();
     cameraConstantData.vpMatrix = cameraConstantData.projMatrix * cameraConstantData.viewMatrix ;
-    //static bool test= false;
-    //if (!test)
-    //{
+    cameraConstantData.pInv = XMMatrixInverse(nullptr, cameraConstantData.projMatrix);
+    cameraConstantData.vpInv = XMMatrixInverse(nullptr, cameraConstantData.projMatrix * cameraConstantData.viewMatrix); 
     mainCamera->GenerateWorldBoundingFrustum(cameraConstantData, mainCamera.get());
-    //    test = true;
-    //}
 
     memcpy(frameRes.mappedCbvData[0], &cameraConstantData, sizeof(cameraConstantData));
 
-    //2. 更新灯光参数
-    //sceneLights[0].Update();
-    lightConstantData.direction = sceneLights[0].GetDirection();
-    //sceneLights[1].Update();
-    lightConstantData.position = sceneLights[1].GetPosition();
-    memcpy(frameRes.mappedCbvData[1], &lightConstantData, sizeof(lightConstantData));
+    //2. 更新平行光参数
+    sceneConstantData.parallelLightDirection = sceneLights[0].GetDirection();
+    sceneConstantData.parallelLightStrength = sceneLights[0].GetStrength();
+    memcpy(frameRes.mappedCbvData[1], &sceneConstantData, sizeof(sceneConstantData));
+
+    //3. 更新点光参数
+    sceneConstantData.maxLightCountPerCluster = clusterLighting.GetMaxLightCountPerCluster();
+    sceneConstantData.pointLightCount = clusterLighting.GetPointLightCount();
 
     //获取当前帧的信息
     ID3D12CommandAllocator* cmdAlloc = frameRes.cmdAllocator.Get();
@@ -431,7 +516,7 @@ void Engine::OnUpdate(FrameResource& frameRes, UINT64 frameIndex)
 
     //把UploadBuffer数据拷贝到DefaultBuffer
     frameRes.CopyConstantFromUploadToDefault();  //内含cmdList的操作
-
+    //clusterLighting.CopyAndUpload(frameRes.cmdList.Get());
 
     //这里不Execute，等和populate一起执行。不然会出错，必须要同步才行
     //ThrowIfFailed(cmdList->Close());
@@ -484,6 +569,26 @@ void Engine::PopulateCommandList(FrameResource& frameRes, UINT64 frameIndex)
     ID3D12GraphicsCommandList* cmdList = frameRes.cmdList.Get();
     ID3D12CommandAllocator* cmdAlloc = frameRes.cmdAllocator.Get();
 
+    //一、Cluster Compute Pass
+    cmdList->SetComputeRootSignature(computeShader->GetRootSignature());
+    D3D12_GPU_VIRTUAL_ADDRESS cameraCbAddress = frameRes.constantDefault[0]->GetGPUAddress();
+    D3D12_GPU_VIRTUAL_ADDRESS sceneCbAddress = frameRes.constantDefault[1]->GetGPUAddress();
+    computeShader->SetComputeParameter(cmdList, "PerCameraConstant", cameraCbAddress);
+    computeShader->SetComputeParameter(cmdList, "SceneConstant", sceneCbAddress);
+    computeShader->SetComputeParameter(cmdList, "Clusters", clusterLighting.GetClusterBufferAddress());
+    computeShader->SetComputeParameter(cmdList, "CulledPointLightIndices", clusterLighting.GetCulledPointLightBufferAddress());
+    computeShader->SetComputeParameter(cmdList, "LightAssignBuffer", clusterLighting.GetLightAssignBufferAddress());
+    computeShader->SetComputeParameter(cmdList, "AllPointLights", clusterLighting.GetPointLightBufferAddress());
+
+    cmdList->SetPipelineState(computePSOs[0].Get());
+    cmdList->Dispatch(128, 1, 1); 
+
+    cmdList->SetPipelineState(computePSOs[1].Get());
+    cmdList->Dispatch(128, 1, 1);
+    
+
+
+    //二、Draw Meshlet
     //1. 设置描述符堆和根签名
     ////之前创建好了根参数，由根参数组织成根签名。现在要设置根签名（根参数），后需要设置描述符堆，因为要把描述符堆和根参数联系起来
     cmdList->SetGraphicsRootSignature(colorShader->GetRootSignature());
@@ -494,12 +599,15 @@ void Engine::PopulateCommandList(FrameResource& frameRes, UINT64 frameIndex)
     //绑定好根签名和描述符堆后，为每个根参数进行赋值（每个根形参都要用一个根实参来赋值）
     //给table实际赋值（table的根参数序号, BaseDescriptor）。因为在跟签名中已经设置了范围，这里只需要一个base就可以了
     //这里设置的是DefaultBuffeForConstant的Descriptor位置，所以offset是FrameCount
-    D3D12_GPU_VIRTUAL_ADDRESS cameraCbAddress = frameRes.constantDefault[0]->GetGPUAddress();
-    D3D12_GPU_VIRTUAL_ADDRESS lightCbAddress = frameRes.constantDefault[1]->GetGPUAddress();
+    
     colorShader->SetParameter(cmdList, "PerCameraConstant", cameraCbAddress);
-    colorShader->SetParameter(cmdList, "PerLightConstant", lightCbAddress);
+    colorShader->SetParameter(cmdList, "SceneConstant", sceneCbAddress);
     colorShader->SetParameter(cmdList, "InstanceInfo", instanceController->GetInstanceInfoGPUAddress());
     colorShader->SetParameter(cmdList, "InstanceData", instanceController->GetInstanceDataGPUAddress());
+    colorShader->SetParameter(cmdList, "Clusters", clusterLighting.GetClusterBufferAddress());
+    colorShader->SetParameter(cmdList, "CulledPointLightIndices", clusterLighting.GetCulledPointLightBufferAddress());
+    colorShader->SetParameter(cmdList, "LightAssignBuffer", clusterLighting.GetLightAssignBufferAddress());
+    colorShader->SetParameter(cmdList, "AllPointLights", clusterLighting.GetPointLightBufferAddress());
 
     // Indicate that the back buffer will be used as a render target.
     cmdList->ResourceBarrier(1, get_rvalue_ptr(CD3DX12_RESOURCE_BARRIER::Transition(m_renderTargets[frameIndex].Get(), D3D12_RESOURCE_STATE_PRESENT, D3D12_RESOURCE_STATE_RENDER_TARGET)));

@@ -1,6 +1,6 @@
 #pragma once
-#ifndef _MODELIMPORTER_H_
-#define _MODELIMPORTER_H_
+#ifndef _MODEL_IMPORTER_H_
+#define _MODEL_IMPORTER_H_
 #include <assimp/Importer.hpp>
 #include <assimp/scene.h>
 #include <assimp/postprocess.h>

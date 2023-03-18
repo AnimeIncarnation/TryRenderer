@@ -9,18 +9,29 @@
 
 //CBuffer要256B对齐，同时必须按照HLSL的封装规则以“填充”变量的方式来定义C++结构体，才能正确memcpy
 //即，每两个成员之间的距离必须是4的整倍数，这是因为cbuffer会把数据打包为4D向量
-struct PerLightConstant
+
+struct PointLightConstant
 {
-	Math::XMFLOAT3 stength;
-    float fallOffStart;
-	Math::XMFLOAT3 position;
-    float fallOffEnd;
-    Math::XMFLOAT3 direction;
-    float spotPower;
-    char padding[208];
+    Math::XMFLOAT3 position;
+    float radius;
+    char padding[240];
 };
-static_assert((sizeof(PerLightConstant) % 256) == 0, "Constant Buffer size must be 256-byte aligned");
-static constexpr UINT PerLightConstantBufferSize = sizeof(PerLightConstant);    // CB size is required to be 256-byte aligned.
+static_assert((sizeof(PointLightConstant) % 256) == 0, "Constant Buffer size must be 256-byte aligned");
+static constexpr UINT PointLightConstantBufferSize = sizeof(PointLightConstant);    // CB size is required to be 256-byte aligned.
+
+
+struct SceneConstant
+{
+    Math::XMFLOAT3 parallelLightDirection;
+    UINT pointLightCount;
+    UINT maxLightCountPerCluster;
+	Math::XMFLOAT3 parallelLightStrength;
+    float nearZ;
+    float farZ;
+    char padding[216];
+};
+static_assert((sizeof(SceneConstant) % 256) == 0, "Constant Buffer size must be 256-byte aligned");
+static constexpr UINT SceneConstantBufferSize = sizeof(SceneConstant);    // CB size is required to be 256-byte aligned.
 
 
 struct PerCameraConstant
@@ -28,8 +39,10 @@ struct PerCameraConstant
     Math::Matrix4 viewMatrix;
     Math::Matrix4 projMatrix;
     Math::Matrix4 vpMatrix;
+    Math::Matrix4 pInv;
+    Math::Matrix4 vpInv;
     Math::XMFLOAT4 frustum[6]; //上下左右近远
-    char padding[224];
+    char padding[96];
 };
 static_assert((sizeof(PerCameraConstant) % 256) == 0, "Constant Buffer size must be 256-byte aligned");
 static constexpr UINT PerCameraConstantBufferSize = sizeof(PerCameraConstant);    // CB size is required to be 256-byte aligned.

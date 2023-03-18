@@ -57,6 +57,7 @@ void Camera::UpdateProjectionMatrix()
 	}
 }
 
+
 void Camera::GenerateBoundingFrustum()
 {
 	//注意，该函数构建出的是观察空间的视锥体，我们需要的是世界空间中的视锥体

@@ -59,6 +59,7 @@ public:
     }
     Math::XMFLOAT3 GetDirection() const { return direction; }
     Math::XMFLOAT3 GetPosition() const { return position; }
+    Math::XMFLOAT3 GetStrength() const { return strength; }
 
 private:
     LightType type;
